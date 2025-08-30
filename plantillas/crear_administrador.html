@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Administrador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .admin-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .mensajes {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1.5rem 0;
+        }
+        
+        .mensajes li {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        
+        .info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+        
+        .btn {
+            transition: all 0.3s ease;
+            background: linear-gradient(to right, #3b82f6, #6366f1);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #e2e8f0;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        
+        .form-group input.error {
+            border-color: #ef4444;
+        }
+        
+        .form-group input.success {
+            border-color: #10b981;
+        }
+        
+        .validation-message {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+        
+        .validation-error {
+            color: #ef4444;
+        }
+        
+        .validation-success {
+            color: #10b981;
+        }
+        
+        .password-rules {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .password-rules h3 {
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .password-rules ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .password-rules li {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .password-rules li i {
+            margin-right: 0.5rem;
+            font-size: 0.625rem;
+        }
+        
+        .password-rules li.valid {
+            color: #10b981;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .btn-loading .loader {
+            display: inline-block;
+        }
+        
+        .btn-loading span {
+            vertical-align: middle;
+        }
+        
+        .input-icon {
+            position: relative;
+        }
+        
+        .input-icon input {
+            padding-right: 2.5rem;
+        }
+        
+        .input-icon i {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #94a3b8;
+        }
+        
+        .success-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .success-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-icon {
+            font-size: 4rem;
+            color: #10b981;
+            margin-bottom: 1rem;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Modal de éxito -->
+    <div class="success-modal" id="successModal">
+        <div class="modal-content">
+            <div class="modal-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-4">¡Administrador creado con éxito!</h2>
+            <p class="text-gray-300 mb-6">Serás redirigido automáticamente al inicio de sesión.</p>
+            <div class="loader mx-auto mb-6"></div>
+            <p class="text-blue-400 text-sm">Si no eres redirigido, <a href="{{ url_for('iniciar_sesion_administrador') }}" class="underline">haz clic aquí</a></p>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <h1 class="text-2xl font-bold text-white mb-6 text-center">Registrar Nuevo Administrador</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="mensajes mb-6">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        
+        <form id="adminForm" action="{{ url_for('crear_administrador') }}" method="post">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="nombre">Nombre:</label>
+                    <input type="text" id="nombre" name="nombre" required 
+                           pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+" title="Solo letras y espacios">
+                    <span class="validation-message validation-error" id="nombreError"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="apellido">Apellido:</label>
+                    <input type="text" id="apellido" name="apellido" required 
+                           pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+" title="Solo letras y espacios">
+                    <span class="validation-message validation-error" id="apellidoError"></span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="dni">DNI:</label>
+                <input type="text" id="dni" name="dni" required 
+                       pattern="[0-9]{8}" title="El DNI debe tener 8 dígitos"
+                       maxlength="8">
+                <span class="validation-message validation-error" id="dniError"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="nombre_usuario">Nombre de Usuario:</label>
+                <input type="text" id="nombre_usuario" name="nombre_usuario" required 
+                       minlength="3" maxlength="20"
+                       pattern="[a-zA-Z0-9_]+" title="Solo letras, números y guiones bajos">
+                <span class="validation-message validation-error" id="usernameError"></span>
+            </div>
+            
+            <div class="password-rules">
+                <h3>La contraseña debe cumplir con:</h3>
+                <ul>
+                    <li id="rule-length"><i class="fas fa-circle"></i> Mínimo 8 caracteres</li>
+                    <li id="rule-uppercase"><i class="fas fa-circle"></i> Al menos una mayúscula</li>
+                    <li id="rule-lowercase"><i class="fas fa-circle"></i> Al menos una minúscula</li>
+                    <li id="rule-number"><i class="fas fa-circle"></i> Al menos un número</li>
+                    <li id="rule-special"><i class="fas fa-circle"></i> Al menos un carácter especial</li>
+                </ul>
+            </div>
+            
+            <div class="form-group">
+                <label for="contrasena">Contraseña:</label>
+                <div class="input-icon">
+                    <input type="password" id="contrasena" name="contrasena" required 
+                           minlength="8" pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$">
+                    <i class="fas fa-eye" id="togglePassword"></i>
+                </div>
+                <span class="validation-message validation-error" id="passwordError"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmar_contrasena">Confirmar Contraseña:</label>
+                <div class="input-icon">
+                    <input type="password" id="confirmar_contrasena" name="confirmar_contrasena" required>
+                    <i class="fas fa-eye" id="toggleConfirmPassword"></i>
+                </div>
+                <span class="validation-message validation-error" id="confirmError"></span>
+            </div>
+            
+            <button type="submit" id="submitBtn" class="btn" disabled>
+                <span class="btn-loading">
+                    <span class="loader" style="display: none;"></span>
+                    <span>Crear Administrador</span>
+                </span>
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <p class="text-gray-400 text-sm mb-2">¿Ya tienes una cuenta de administrador?</p>
+            <a href="{{ url_for('iniciar_sesion_administrador') }}" class="text-blue-400 hover:text-blue-300 text-sm">
+                <i class="fas fa-sign-in-alt mr-1"></i> Iniciar Sesión
+            </a>
+            <span class="text-gray-600 mx-2">|</span>
+            <a href="{{ url_for('inicio') }}" class="text-blue-400 hover:text-blue-300 text-sm">
+                <i class="fas fa-arrow-left mr-1"></i> Volver al Inicio
+            </a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('adminForm');
+            const nombreInput = document.getElementById('nombre');
+            const apellidoInput = document.getElementById('apellido');
+            const dniInput = document.getElementById('dni');
+            const usernameInput = document.getElementById('nombre_usuario');
+            const passwordInput = document.getElementById('contrasena');
+            const confirmInput = document.getElementById('confirmar_contrasena');
+            const submitBtn = document.getElementById('submitBtn');
+            const nombreError = document.getElementById('nombreError');
+            const apellidoError = document.getElementById('apellidoError');
+            const dniError = document.getElementById('dniError');
+            const usernameError = document.getElementById('usernameError');
+            const passwordError = document.getElementById('passwordError');
+            const confirmError = document.getElementById('confirmError');
+            const togglePassword = document.getElementById('togglePassword');
+            const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+            const successModal = document.getElementById('successModal');
+            
+            // Reglas de contraseña
+            const ruleLength = document.getElementById('rule-length');
+            const ruleUppercase = document.getElementById('rule-uppercase');
+            const ruleLowercase = document.getElementById('rule-lowercase');
+            const ruleNumber = document.getElementById('rule-number');
+            const ruleSpecial = document.getElementById('rule-special');
+            
+            // Mostrar/ocultar contraseña
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+            
+            toggleConfirmPassword.addEventListener('click', function() {
+                const type = confirmInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                confirmInput.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+            
+            // Validar nombre
+            nombreInput.addEventListener('input', function() {
+                const nombre = this.value.trim();
+                
+                if (nombre.length < 2) {
+                    showError(nombreError, 'El nombre debe tener al menos 2 caracteres');
+                    markFieldInvalid(this);
+                } else if (!/^[A-Za-zÁÉÍÓÚáéíóúñÑ ]+$/.test(nombre)) {
+                    showError(nombreError, 'Solo se permiten letras y espacios');
+                    markFieldInvalid(this);
+                } else {
+                    clearError(nombreError);
+                    markFieldValid(this);
+                }
+                
+                validateForm();
+            });
+            
+            // Validar apellido
+            apellidoInput.addEventListener('input', function() {
+                const apellido = this.value.trim();
+                
+                if (apellido.length < 2) {
+                    showError(apellidoError, 'El apellido debe tener al menos 2 caracteres');
+                    markFieldInvalid(this);
+                } else if (!/^[A-Za-zÁÉÍÓÚáéíóúñÑ ]+$/.test(apellido)) {
+                    showError(apellidoError, 'Solo se permiten letras y espacios');
+                    markFieldInvalid(this);
+                } else {
+                    clearError(apellidoError);
+                    markFieldValid(this);
+                }
+                
+                validateForm();
+            });
+            
+            // Validar DNI
+            dniInput.addEventListener('input', function() {
+                const dni = this.value.trim();
+                
+                if (dni.length !== 8) {
+                    showError(dniError, 'El DNI debe tener 8 dígitos');
+                    markFieldInvalid(this);
+                } else if (!/^[0-9]+$/.test(dni)) {
+                    showError(dniError, 'El DNI solo puede contener números');
+                    markFieldInvalid(this);
+                } else {
+                    clearError(dniError);
+                    markFieldValid(this);
+                }
+                
+                validateForm();
+            });
+            
+            // Validar nombre de usuario
+            usernameInput.addEventListener('input', function() {
+                const username = this.value.trim();
+                
+                if (username.length < 3) {
+                    showError(usernameError, 'El nombre de usuario debe tener al menos 3 caracteres');
+                    markFieldInvalid(this);
+                } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                    showError(usernameError, 'Solo se permiten letras, números y guiones bajos');
+                    markFieldInvalid(this);
+                } else {
+                    clearError(usernameError);
+                    markFieldValid(this);
+                }
+                
+                validateForm();
+            });
+            
+            // Validar contraseña
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                
+                // Validar longitud
+                if (password.length < 8) {
+                    showError(passwordError, 'La contraseña debe tener al menos 8 caracteres');
+                    markFieldInvalid(this);
+                    updateRule(ruleLength, false);
+                } else {
+                    clearError(passwordError);
+                    updateRule(ruleLength, true);
+                }
+                
+                // Validar mayúsculas
+                if (!/(?=.*[A-Z])/.test(password)) {
+                    updateRule(ruleUppercase, false);
+                } else {
+                    updateRule(ruleUppercase, true);
+                }
+                
+                // Validar minúsculas
+                if (!/(?=.*[a-z])/.test(password)) {
+                    updateRule(ruleLowercase, false);
+                } else {
+                    updateRule(ruleLowercase, true);
+                }
+                
+                // Validar números
+                if (!/(?=.*\d)/.test(password)) {
+                    updateRule(ruleNumber, false);
+                } else {
+                    updateRule(ruleNumber, true);
+                }
+                
+                // Validar caracteres especiales
+                if (!/(?=.*[@$!%*?&])/.test(password)) {
+                    updateRule(ruleSpecial, false);
+                } else {
+                    updateRule(ruleSpecial, true);
+                }
+                
+                // Si hay errores, marcar campo como inválido
+                if (passwordError.textContent !== '') {
+                    markFieldInvalid(this);
+                } else {
+                    markFieldValid(this);
+                }
+                
+                // Validar confirmación de contraseña
+                validatePasswordConfirmation();
+                validateForm();
+            });
+            
+            // Validar confirmación de contraseña
+            confirmInput.addEventListener('input', validatePasswordConfirmation);
+            
+            function validatePasswordConfirmation() {
+                const password = passwordInput.value;
+                const confirmPassword = confirmInput.value;
+                
+                if (confirmPassword === '') {
+                    clearError(confirmError);
+                    markFieldNeutral(confirmInput);
+                } else if (password !== confirmPassword) {
+                    showError(confirmError, 'Las contraseñas no coinciden');
+                    markFieldInvalid(confirmInput);
+                } else {
+                    clearError(confirmError);
+                    markFieldValid(confirmInput);
+                }
+                
+                validateForm();
+            }
+            
+            function validateForm() {
+                const isNombreValid = nombreInput.value.length >= 2 && 
+                                   /^[A-Za-zÁÉÍÓÚáéíóúñÑ ]+$/.test(nombreInput.value);
+                
+                const isApellidoValid = apellidoInput.value.length >= 2 && 
+                                     /^[A-Za-zÁÉÍÓÚáéíóúñÑ ]+$/.test(apellidoInput.value);
+                
+                const isDniValid = dniInput.value.length === 8 && 
+                                /^[0-9]+$/.test(dniInput.value);
+                
+                const isUsernameValid = usernameInput.value.length >= 3 && 
+                                      /^[a-zA-Z0-9_]+$/.test(usernameInput.value);
+                
+                const isPasswordValid = passwordInput.value.length >= 8 &&
+                                      /(?=.*[a-z])/.test(passwordInput.value) &&
+                                      /(?=.*[A-Z])/.test(passwordInput.value) &&
+                                      /(?=.*\d)/.test(passwordInput.value) &&
+                                      /(?=.*[@$!%*?&])/.test(passwordInput.value);
+                
+                const isConfirmValid = confirmInput.value === passwordInput.value && 
+                                      passwordInput.value !== '';
+                
+                if (isNombreValid && isApellidoValid && isDniValid && 
+                    isUsernameValid && isPasswordValid && isConfirmValid) {
+                    submitBtn.disabled = false;
+                } else {
+                    submitBtn.disabled = true;
+                }
+            }
+            
+            // Envío del formulario
+            form.addEventListener('submit', function(e) {
+                // Validación final antes de enviar
+                if (submitBtn.disabled) {
+                    e.preventDefault();
+                    return;
+                }
+                
+                // Mostrar indicador de carga
+                const loader = submitBtn.querySelector('.loader');
+                const text = submitBtn.querySelector('span:last-child');
+                
+                submitBtn.disabled = true;
+                loader.style.display = 'inline-block';
+                text.textContent = 'Procesando...';
+                
+                // Enviar formulario de forma asíncrona
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        // Mostrar modal de éxito
+                        successModal.classList.add('active');
+                        
+                        // Redirigir después de 3 segundos
+                        setTimeout(() => {
+                            window.location.href = response.url;
+                        }, 3000);
+                    } else {
+                        return response.text().then(html => {
+                            // Recargar la página para mostrar mensajes de error
+                            document.documentElement.innerHTML = html;
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    loader.style.display = 'none';
+                    text.textContent = 'Crear Administrador';
+                    submitBtn.disabled = false;
+                    alert('Error al crear el administrador. Por favor, intenta nuevamente.');
+                });
+            });
+            
+            // Funciones auxiliares
+            function showError(element, message) {
+                element.textContent = message;
+                element.classList.add('validation-error');
+                element.classList.remove('validation-success');
+            }
+            
+            function clearError(element) {
+                element.textContent = '';
+            }
+            
+            function markFieldInvalid(field) {
+                field.classList.add('error');
+                field.classList.remove('success');
+            }
+            
+            function markFieldValid(field) {
+                field.classList.remove('error');
+                field.classList.add('success');
+            }
+            
+            function markFieldNeutral(field) {
+                field.classList.remove('error');
+                field.classList.remove('success');
+            }
+            
+            function updateRule(ruleElement, isValid) {
+                if (isValid) {
+                    ruleElement.classList.add('valid');
+                    ruleElement.querySelector('i').className = 'fas fa-check-circle';
+                } else {
+                    ruleElement.classList.remove('valid');
+                    ruleElement.querySelector('i').className = 'fas fa-circle';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

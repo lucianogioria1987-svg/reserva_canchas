@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administrador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+        }
+        
+        .admin-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .sidebar-link {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-link:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-left-color: #3b82f6;
+            transform: translateX(5px);
+        }
+        
+        .sidebar-link.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-left-color: #3b82f6;
+        }
+        
+        .user-avatar {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+        
+        .content-section {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .btn {
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+        }
+    </style>
+</head>
+<body class="flex min-h-screen p-4 sm:p-8">
+    <!-- Card principal -->
+    <div class="admin-card w-full max-w-6xl mx-auto rounded-2xl overflow-hidden flex flex-col md:flex-row">
+        <!-- Barra lateral -->
+        <div class="w-full md:w-64 bg-gray-900 p-6 flex flex-col">
+            <div class="flex flex-col items-center mb-8">
+                <div class="user-avatar w-20 h-20 rounded-full flex items-center justify-center text-white text-4xl font-bold mb-3 pulse">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Panel de Admin</h2>
+                <p class="text-blue-300 text-sm mt-1">Bienvenido, {{ nombre_usuario }}</p>
+            </div>
+            
+            <nav class="flex-1">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="{{ url_for('panel_administrador') }}" class="sidebar-link active flex items-center p-3 text-blue-100 rounded-lg">
+                            <i class="fas fa-tachometer-alt mr-3 text-blue-400"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('gestionar_canchas') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-futbol mr-3 text-green-400"></i>
+                            <span>Gestión de Canchas</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('ver_turnos_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-calendar-check mr-3 text-yellow-400"></i>
+                            <span>Turnos Reservados</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('ver_turnos_cancelados_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-calendar-times mr-3 text-red-400"></i>
+                            <span>Turnos Cancelados</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('gestionar_usuarios') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-users mr-3 text-purple-400"></i>
+                            <span>Gestión de Usuarios</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('informe_financiero_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-chart-line mr-3 text-teal-400"></i>
+                            <span>Informe Financiero</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="mt-auto pt-4 border-t border-gray-700">
+                <a href="{{ url_for('cerrar_sesion') }}" class="flex items-center p-3 text-gray-300 rounded-lg hover:bg-red-900/30 hover:text-red-100">
+                    <i class="fas fa-sign-out-alt mr-3 text-red-400"></i>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Contenido principal -->
+        <div class="flex-1 p-6 content-section">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-white glow-text">Panel de Administrador</h1>
+                <p class="text-blue-200">Bienvenido, aquí puedes gestionar todo el sistema.</p>
+            </div>
+            
+            <!-- Mensajes de estado -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <div class="bg-gradient-to-r from-green-900/40 to-green-800/30 p-4 rounded-xl border border-green-700/30">
+                    <div class="flex items-center">
+                        <div class="bg-green-500/20 p-3 rounded-lg mr-4">
+                            <i class="fas fa-check-circle text-green-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-semibold">Sistema Operativo</h3>
+                            <p class="text-green-300 text-sm">Todos los servicios funcionando correctamente</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-blue-900/40 to-blue-800/30 p-4 rounded-xl border border-blue-700/30">
+                    <div class="flex items-center">
+                        <div class="bg-blue-500/20 p-3 rounded-lg mr-4">
+                            <i class="fas fa-info-circle text-blue-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-semibold">Última Actualización</h3>
+                            <p class="text-blue-300 text-sm">Hoy, {{ hora_actual }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Estadísticas rápidas -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-gradient-to-br from-blue-900/40 to-blue-800/20 p-5 rounded-xl border border-blue-700/30">
+                    <div class="text-blue-300 mb-2">
+                        <i class="fas fa-futbol"></i> Canchas
+                    </div>
+                    <div class="text-3xl font-bold text-white">{{ total_canchas }}</div>
+                    <div class="text-blue-300 text-sm mt-1">
+                        Disponibles en el sistema
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-br from-purple-900/40 to-purple-800/20 p-5 rounded-xl border border-purple-700/30">
+                    <div class="text-purple-300 mb-2">
+                        <i class="fas fa-calendar-alt"></i> Reservas Hoy
+                    </div>
+                    <div class="text-3xl font-bold text-white">{{ total_reservas_hoy }}</div>
+                    <div class="text-purple-300 text-sm mt-1">
+                        Turnos reservados hoy
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-br from-teal-900/40 to-teal-800/20 p-5 rounded-xl border border-teal-700/30">
+                    <div class="text-teal-300 mb-2">
+                        <i class="fas fa-users"></i> Usuarios
+                    </div>
+                    <div class="text-3xl font-bold text-white">{{ total_usuarios }}</div>
+                    <div class="text-teal-300 text-sm mt-1">
+                        Usuarios registrados
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-br from-amber-900/40 to-amber-800/20 p-5 rounded-xl border border-amber-700/30">
+                    <div class="text-amber-300 mb-2">
+                        <i class="fas fa-dollar-sign"></i> Ingresos
+                    </div>
+                    <div class="text-3xl font-bold text-white">${{ ingresos_mensuales }}</div>
+                    <div class="text-amber-300 text-sm mt-1">
+                        Mes actual hasta hoy
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Acciones principales -->
+            <div class="bg-gradient-to-br from-gray-800/40 to-gray-900/50 p-6 rounded-2xl border border-gray-700/30 mb-8">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                    <i class="fas fa-cogs mr-2 text-blue-400"></i>
+                    Acciones Principales
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <a href="{{ url_for('gestionar_canchas') }}" class="btn bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-xl flex items-center justify-center text-center hover:from-blue-500 hover:to-blue-600">
+                        <div class="mr-3 text-2xl">
+                            <i class="fas fa-futbol"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold">Gestionar Canchas</div>
+                            <div class="text-xs opacity-80 mt-1">Administrar disponibilidad</div>
+                        </div>
+                    </a>
+                    
+                    <a href="{{ url_for('ver_turnos_administrador') }}" class="btn bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-xl flex items-center justify-center text-center hover:from-purple-500 hover:to-purple-600">
+                        <div class="mr-3 text-2xl">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold">Ver Turnos</div>
+                            <div class="text-xs opacity-80 mt-1">Reservas y cancelaciones</div>
+                        </div>
+                    </a>
+                    
+                    <a href="{{ url_for('informe_financiero_administrador') }}" class="btn bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4 rounded-xl flex items-center justify-center text-center hover:from-teal-500 hover:to-teal-600">
+                        <div class="mr-3 text-2xl">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold">Informes</div>
+                            <div class="text-xs opacity-80 mt-1">Finanzas y estadísticas</div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Mensaje de bienvenida -->
+            <div class="bg-gradient-to-br from-gray-800/40 to-gray-900/50 p-6 rounded-2xl border border-gray-700/30">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                    <i class="fas fa-info-circle mr-2 text-blue-400"></i>
+                    Bienvenido al Sistema
+                </h2>
+                
+                <p class="text-gray-300 mb-4">
+                    Desde este panel podrás gestionar todas las funcionalidades del sistema de reservas de canchas deportivas. 
+                    Utiliza el menú lateral para acceder a las diferentes secciones de administración.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <div class="bg-gray-800/40 p-4 rounded-xl border border-gray-700/30">
+                        <h3 class="text-blue-400 font-semibold mb-2">
+                            <i class="fas fa-lightbulb mr-2"></i>Sugerencia
+                        </h3>
+                        <p class="text-gray-300 text-sm">
+                            Revisa regularmente los turnos cancelados para optimizar la disponibilidad de las canchas.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-gray-800/40 p-4 rounded-xl border border-gray-700/30">
+                        <h3 class="text-green-400 font-semibold mb-2">
+                            <i class="fas fa-chart-line mr-2"></i>Estadística
+                        </h3>
+                        <p class="text-gray-300 text-sm">
+                            Este mes has generado ${{ ingresos_mensuales }} en ingresos.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Obtener hora actual para mostrar en el panel
+        const ahora = new Date();
+        const hora = ahora.getHours().toString().padStart(2, '0');
+        const minutos = ahora.getMinutes().toString().padStart(2, '0');
+        document.querySelector('.text-blue-300.text-sm').textContent = `Hoy, ${hora}:${minutos}`;
+
+        // Efecto de hover en los enlaces
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('mouseenter', function() {
+                const icon = this.querySelector('i');
+                icon.style.transform = 'scale(1.2)';
+                icon.style.transition = 'transform 0.3s ease';
+            });
+            
+            link.addEventListener('mouseleave', function() {
+                const icon = this.querySelector('i');
+                icon.style.transform = 'scale(1)';
+            });
+        });
+        
+        // Resaltar enlace activo basado en la URL actual
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const menuLinks = document.querySelectorAll('.sidebar-link');
+            
+            menuLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        });
+        
+        // Simular mensaje flash
+        setTimeout(() => {
+            const flash = document.createElement('div');
+            flash.className = 'bg-green-900/50 border border-green-700/30 text-green-300 p-4 rounded-lg mb-6';
+            flash.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle mr-3 text-green-400"></i>
+                    <span>¡Bienvenido al panel de administración! El sistema está funcionando correctamente.</span>
+                </div>
+            `;
+            document.querySelector('.content-section').insertBefore(flash, document.querySelector('.content-section').firstChild);
+            
+            // Eliminar después de 5 segundos
+            setTimeout(() => {
+                flash.style.opacity = '0';
+                flash.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => flash.remove(), 500);
+            }, 5000);
+        }, 1000);
+    </script>
+</body>
+</html>

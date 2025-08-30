@@ -1,0 +1,37 @@
+[
+    {
+        "id": 1,
+        "nombre": "Cancha 1",
+        "tipo": "F5",
+        "condicion": "Excelente",
+        "monto": 30000.0
+    },
+    {
+        "id": 2,
+        "nombre": "Cancha 2",
+        "tipo": "F5",
+        "condicion": "descubierto",
+        "monto": 30000.0
+    },
+    {
+        "id": 3,
+        "nombre": "Cancha 3",
+        "tipo": "F5",
+        "condicion": "descubierto",
+        "monto": 30000.0
+    },
+    {
+        "id": 4,
+        "nombre": "Cancha 4",
+        "tipo": "F5",
+        "condicion": "descubierto",
+        "monto": 30000.0
+    },
+    {
+        "id": 5,
+        "nombre": "Cancha 5",
+        "tipo": "F7",
+        "condicion": "techado",
+        "monto": 45000.0
+    }
+]

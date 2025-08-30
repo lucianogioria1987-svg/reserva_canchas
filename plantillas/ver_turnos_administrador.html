@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turnos Reservados - Administrador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .admin-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .mensajes {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1.5rem 0;
+        }
+        
+        .mensajes li {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        
+        .info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+        
+        .reservas-section {
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .reservas-header {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tabla-turnos {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .tabla-turnos th, .tabla-turnos td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+        
+        .tabla-turnos th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+        
+        .action-link {
+            color: #f87171;
+        }
+        
+        .action-link:hover {
+            color: #ef4444;
+        }
+        
+        .no-data {
+            padding: 2rem;
+            text-align: center;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.03);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-card">
+        <h1 class="text-3xl font-bold text-white mb-6 text-center">Turnos Reservados</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="mensajes mb-6">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        {% if reservas_por_dia %}
+            {% for fecha, turnos in reservas_por_dia %}
+            <div class="reservas-section">
+                <div class="reservas-header">
+                    <h2 class="text-xl font-semibold text-white">{{ fecha }}</h2>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="tabla-turnos">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Cancha</th>
+                                <th>Usuario</th>
+                                <th>Monto</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for turno in turnos %}
+                            <tr>
+                                <td>{{ turno.hora_inicio }} - {{ turno.hora_fin }}</td>
+                                <td>{{ turno.cancha_nombre }}</td>
+                                <td>{{ turno.usuario }}</td>
+                                <td>${{ "%.2f"|format(turno.monto_total) }}</td>
+                                <td>
+                                    <a href="{{ url_for('cancelar_turno_admin', reserva_id=turno.id) }}" 
+                                       class="action-link"
+                                       onclick="return confirm('¿Cancelar este turno?')">
+                                        <i class="fas fa-times-circle mr-1"></i> Cancelar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-data">
+                <p>No hay turnos reservados actualmente</p>
+            </div>
+        {% endif %}
+        
+        <div class="mt-6 text-center">
+            <a href="{{ url_for('panel_administrador') }}" class="text-blue-400 hover:text-blue-300">
+                <i class="fas fa-arrow-left mr-1"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+</body>
+</html>

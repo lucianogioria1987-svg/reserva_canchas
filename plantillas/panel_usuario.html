@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Usuario</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+        }
+        
+        .admin-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .sidebar-link {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-link:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-left-color: #3b82f6;
+            transform: translateX(5px);
+        }
+        
+        .sidebar-link.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-left-color: #3b82f6;
+        }
+        
+        .user-avatar {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+        
+        .content-section {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .btn {
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+        }
+        
+        .mensajes {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1.5rem 0;
+        }
+        
+        .mensajes li {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        
+        .info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+        
+        .tabla-turnos {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .tabla-turnos th, .tabla-turnos td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tabla-turnos th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .badge-info {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+        
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .condicion-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .condicion-excelente {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .condicion-buena {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .condicion-regular {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        
+        .condicion-mantenimiento {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .info-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-label {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-value {
+            color: white;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="flex min-h-screen p-4 sm:p-8">
+    <!-- Card principal -->
+    <div class="admin-card w-full max-w-6xl mx-auto rounded-2xl overflow-hidden flex flex-col md:flex-row">
+        <!-- Barra lateral -->
+        <div class="w-full md:w-64 bg-gray-900 p-6 flex flex-col">
+            <div class="flex flex-col items-center mb-8">
+                <div class="user-avatar w-20 h-20 rounded-full flex items-center justify-center text-white text-4xl font-bold mb-3 pulse">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Panel de Usuario</h2>
+                <p class="text-blue-300 text-sm mt-1">Bienvenido, {{ nombre_usuario }}</p>
+            </div>
+            
+            <nav class="flex-1">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" class="sidebar-link active flex items-center p-3 text-blue-100 rounded-lg">
+                            <i class="fas fa-home mr-3 text-blue-400"></i>
+                            <span>Inicio</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('reservar_turno') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-calendar-plus mr-3 text-green-400"></i>
+                            <span>Reservar Turno</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('mis_turnos') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-calendar-check mr-3 text-yellow-400"></i>
+                            <span>Mis Turnos</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="mt-auto pt-4 border-t border-gray-700">
+                <a href="{{ url_for('cerrar_sesion') }}" class="flex items-center p-3 text-gray-300 rounded-lg hover:bg-red-900/30 hover:text-red-100">
+                    <i class="fas fa-sign-out-alt mr-3 text-red-400"></i>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Contenido principal -->
+        <div class="flex-1 p-6 content-section">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-white glow-text">Panel de Usuario</h1>
+                <p class="text-blue-200">Bienvenido, aquí puedes gestionar todas tus reservas.</p>
+            </div>
+            
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="mensajes mb-6">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Estadísticas rápidas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <div class="bg-gradient-to-br from-blue-900/40 to-blue-800/20 p-5 rounded-xl border border-blue-700/30">
+                    <div class="text-blue-300 mb-2">
+                        <i class="fas fa-calendar-plus"></i> Acción Rápida
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Reservar Turno</h3>
+                    <p class="text-blue-300 text-sm mb-4">
+                        Reserva un nuevo turno en nuestras canchas deportivas
+                    </p>
+                    <a href="{{ url_for('reservar_turno') }}" class="btn bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2 px-4 rounded-lg inline-block text-sm hover:from-blue-500 hover:to-blue-600">
+                        <i class="fas fa-plus mr-1"></i> Reservar Ahora
+                    </a>
+                </div>
+                
+                <div class="bg-gradient-to-br from-purple-900/40 to-purple-800/20 p-5 rounded-xl border border-purple-700/30">
+                    <div class="text-purple-300 mb-2">
+                        <i class="fas fa-calendar-check"></i> Mis Reservas
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">Ver Todos Mis Turnos</h3>
+                    <p class="text-purple-300 text-sm mb-4">
+                        Revisa, modifica o cancela tus turnos reservados
+                    </p>
+                    <a href="{{ url_for('mis_turnos') }}" class="btn bg-gradient-to-r from-purple-600 to-purple-700 text-white py-2 px-4 rounded-lg inline-block text-sm hover:from-purple-500 hover:to-purple-600">
+                        <i class="fas fa-eye mr-1"></i> Ver Todos
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Información del perfil de usuario -->
+            <div class="bg-gradient-to-br from-gray-800/40 to-gray-900/50 p-6 rounded-2xl border border-gray-700/30 mb-8">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                    <i class="fas fa-user-circle mr-2 text-blue-400"></i>
+                    Información del Perfil
+                </h2>
+                
+                <div class="info-grid">
+                    <div class="info-card">
+                        <p class="info-label">Nombre Completo</p>
+                        <p class="info-value">{{ session.nombre_completo }}</p>
+                    </div>
+                    
+                    <div class="info-card">
+                        <p class="info-label">DNI</p>
+                        <p class="info-value">{{ session.dni }}</p>
+                    </div>
+                    
+                    <div class="info-card">
+                        <p class="info-label">Nombre de Usuario</p>
+                        <p class="info-value">{{ session.nombre_usuario }}</p>
+                    </div>
+                    
+                    <div class="info-card">
+                        <p class="info-label">Tipo de Cuenta</p>
+                        <p class="info-value capitalize">{{ session.rol }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sección de Próximos Turnos -->
+            <div class="bg-gradient-to-br from-gray-800/40 to-gray-900/50 p-6 rounded-2xl border border-gray-700/30 mb-8">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                    <i class="fas fa-calendar-alt mr-2 text-blue-400"></i>
+                    Mis Próximos Turnos
+                </h2>
+                
+                {% if proximos_turnos and proximos_turnos|length > 0 %}
+                <div class="overflow-x-auto">
+                    <table class="tabla-turnos">
+                        <thead>
+                            <tr>
+                                <th class="text-white">Fecha</th>
+                                <th class="text-white">Hora</th>
+                                <th class="text-white">Cancha</th>
+                                <th class="text-white">Tipo</th>
+                                <th class="text-white">Condición</th>
+                                <th class="text-white">Monto</th>
+                                <th class="text-white">Estado</th>
+                                <th class="text-white">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for turno in proximos_turnos %}
+                            <tr class="text-gray-300">
+                                <td>{{ turno.fecha }}</td>
+                                <td>{{ turno.hora_inicio }} - {{ turno.hora_fin }}</td>
+                                <td>{{ turno.cancha_nombre }}</td>
+                                <td>{{ turno.cancha_tipo }}</td>
+                                <td>
+                                    {% if turno.cancha_condicion == 'Excelente' %}
+                                    <span class="condicion-badge condicion-excelente">
+                                        <i class="fas fa-star mr-1"></i> Excelente
+                                    </span>
+                                    {% elif turno.cancha_condicion == 'Buena' %}
+                                    <span class="condicion-badge condicion-buena">
+                                        <i class="fas fa-thumbs-up mr-1"></i> Buena
+                                    </span>
+                                    {% elif turno.cancha_condicion == 'Regular' %}
+                                    <span class="condicion-badge condicion-regular">
+                                        <i class="fas fa-info-circle mr-1"></i> Regular
+                                    </span>
+                                    {% elif turno.cancha_condicion == 'En Mantenimiento' %}
+                                    <span class="condicion-badge condicion-mantenimiento">
+                                        <i class="fas fa-tools mr-1"></i> Mantenimiento
+                                    </span>
+                                    {% else %}
+                                    <span class="condicion-badge condicion-regular">
+                                        {{ turno.cancha_condicion }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>${{ turno.monto }}</td>
+                                <td>
+                                    <span class="badge badge-success">Próximo</span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('cancelar_turno', reserva_id=turno.id) }}" 
+                                       class="text-red-400 hover:text-red-300 text-sm"
+                                       onclick="return confirm('¿Estás seguro de que quieres cancelar este turno?')">
+                                        <i class="fas fa-times-circle mr-1"></i> Cancelar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <i class="fas fa-calendar-times text-4xl text-gray-500 mb-4"></i>
+                    <p class="text-gray-400">No tienes turnos próximos.</p>
+                    <a href="{{ url_for('reservar_turno') }}" class="btn bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2 px-4 rounded-lg inline-block mt-4 text-sm hover:from-blue-500 hover:to-blue-600">
+                        <i class="fas fa-plus mr-1"></i> Reservar un turno
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if total_turnos and total_turnos > (proximos_turnos|length if proximos_turnos else 0) %}
+                <div class="mt-4 text-center">
+                    <a href="{{ url_for('mis_turnos') }}" class="text-blue-400 hover:text-blue-300 text-sm">
+                        <i class="fas fa-list mr-1"></i> Ver todos mis turnos ({{ total_turnos }} en total)
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Información de usuario -->
+            <div class="bg-gradient-to-br from-gray-800/40 to-gray-900/50 p-6 rounded-2xl border border-gray-700/30">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                    <i class="fas fa-info-circle mr-2 text-blue-400"></i>
+                    Información del Usuario
+                </h2>
+                
+                <p class="text-gray-300 mb-4">
+                    Bienvenido a tu panel de usuario. Desde aquí puedes gestionar todas tus reservas de canchas deportivas. 
+                    Utiliza las opciones del menú lateral para navegar por las diferentes secciones.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <div class="bg-gray-800/40 p-4 rounded-xl border border-gray-700/30">
+                        <h3 class="text-blue-400 font-semibold mb-2">
+                            <i class="fas fa-lightbulb mr-2"></i>Sugerencia
+                        </h3>
+                        <p class="text-gray-300 text-sm">
+                            Reserva con anticipación para asegurar tu turno en los horarios más convenientes.
+                        </p>
+                    </div>
+                    
+                    <div class="bg-gray-800/40 p-4 rounded-xl border border-gray-700/30">
+                        <h3 class="text-green-400 font-semibold mb-2">
+                            <i class="fas fa-clock mr-2"></i>Disponibilidad
+                        </h3>
+                        <p class="text-gray-300 text-sm">
+                            Recuerda que puedes reservar con hasta 7 días de anticipación.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Obtener hora actual para mostrar en el panel
+        const ahora = new Date();
+        const hora = ahora.getHours().toString().padStart(2, '0');
+        const minutos = ahora.getMinutes().toString().padStart(2, '0');
+        
+        // Efecto de hover en los enlaces
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('mouseenter', function() {
+                const icon = this.querySelector('i');
+                icon.style.transform = 'scale(1.2)';
+                icon.style.transition = 'transform 0.3s ease';
+            });
+            
+            link.addEventListener('mouseleave', function() {
+                const icon = this.querySelector('i');
+                icon.style.transform = 'scale(1)';
+            });
+        });
+        
+        // Resaltar enlace activo basado en la URL actual
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const menuLinks = document.querySelectorAll('.sidebar-link');
+            
+            menuLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

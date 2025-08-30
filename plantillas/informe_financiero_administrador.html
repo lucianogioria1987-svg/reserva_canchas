@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Financiero - Administrador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .admin-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .mensajes {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1.5rem 0;
+        }
+        
+        .mensajes li {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        
+        .info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+        
+        .report-section {
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .report-header {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .report-table th, .report-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+        
+        .report-table th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+        
+        .report-table td {
+            text-align: right;
+        }
+        
+        .report-table td:first-child {
+            text-align: left;
+        }
+        
+        .no-data {
+            padding: 2rem;
+            text-align: center;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.03);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-card">
+        <h1 class="text-3xl font-bold text-white mb-6 text-center">Informe Financiero</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="mensajes mb-6">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Sección de Reportes -->
+        <div class="space-y-6">
+            <!-- Reporte Diario -->
+            <div class="report-section">
+                <div class="report-header">
+                    <h2 class="text-xl font-semibold text-white">Ingresos Diarios</h2>
+                </div>
+                {% if reportes.diario %}
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fecha, total in reportes.diario %}
+                            <tr>
+                                <td>{{ fecha }}</td>
+                                <td>${{ "%.2f"|format(total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <p>No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Reporte Semanal -->
+            <div class="report-section">
+                <div class="report-header">
+                    <h2 class="text-xl font-semibold text-white">Ingresos Semanales</h2>
+                </div>
+                {% if reportes.semanal %}
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Semana</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for semana, total in reportes.semanal %}
+                            <tr>
+                                <td>{{ semana }}</td>
+                                <td>${{ "%.2f"|format(total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <p>No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Reporte Mensual -->
+            <div class="report-section">
+                <div class="report-header">
+                    <h2 class="text-xl font-semibold text-white">Ingresos Mensuales</h2>
+                </div>
+                {% if reportes.mensual %}
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Mes</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mes, total in reportes.mensual %}
+                            <tr>
+                                <td>{{ mes }}</td>
+                                <td>${{ "%.2f"|format(total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <p>No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Reporte Trimestral -->
+            <div class="report-section">
+                <div class="report-header">
+                    <h2 class="text-xl font-semibold text-white">Ingresos Trimestrales</h2>
+                </div>
+                {% if reportes.trimestral %}
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Trimestre</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trimestre, total in reportes.trimestral %}
+                            <tr>
+                                <td>{{ trimestre }}</td>
+                                <td>${{ "%.2f"|format(total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <p>No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Reporte Semestral -->
+            <div class="report-section">
+                <div class="report-header">
+                    <h2 class="text-xl font-semibold text-white">Ingresos Semestrales</h2>
+                </div>
+                {% if reportes.semestral %}
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Semestre</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for semestre, total in reportes.semestral %}
+                            <tr>
+                                <td>{{ semestre }}</td>
+                                <td>${{ "%.2f"|format(total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <p>No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Reporte Anual -->
+            <div class="report-section">
+                <div class="report-header">
+                    <h2 class="text-xl font-semibold text-white">Ingresos Anuales</h2>
+                </div>
+                {% if reportes.anual %}
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Año</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for año, total in reportes.anual %}
+                            <tr>
+                                <td>{{ año }}</td>
+                                <td>${{ "%.2f"|format(total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-data">
+                    <p>No hay datos disponibles</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mt-6 text-center">
+            <a href="{{ url_for('panel_administrador') }}" class="text-blue-400 hover:text-blue-300">
+                <i class="fas fa-arrow-left mr-1"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+</body>
+</html>

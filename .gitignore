@@ -1,0 +1,39 @@
+# --- Archivos de Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --- Entornos virtuales ---
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# --- Archivos de configuración ---
+*.env
+*.ini
+*.toml
+*.cfg
+
+# --- Archivos de logs ---
+*.log
+
+# --- Archivos de base de datos temporales ---
+*.sqlite3
+
+# --- Jupyter Notebook checkpoints ---
+.ipynb_checkpoints
+
+# --- Archivos de sistema ---
+.DS_Store
+Thumbs.db
+
+# --- Carpetas de compilación ---
+build/
+dist/
+*.egg-info/
+
+# --- VSCode ---
+.vscode/

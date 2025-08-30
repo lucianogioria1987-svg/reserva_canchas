@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Cancha F5 - Inicio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+        
+        .btn {
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+        }
+        
+        .mensajes {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1.5rem 0;
+        }
+        
+        .mensajes li {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        
+        .info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+        
+        .hero-pattern {
+            background-image: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+        }
+        
+        .side-image {
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s ease;
+        }
+        
+        .side-image:hover {
+            transform: scale(1.03);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+        
+        .side-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.7));
+            z-index: 1;
+        }
+        
+        .side-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.8s ease;
+        }
+        
+        .side-image:hover img {
+            transform: scale(1.1);
+        }
+        
+        .image-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 2rem;
+            z-index: 2;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        @media (max-width: 1024px) {
+            .side-images-container {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex">
+    <!-- Imagen lateral izquierda -->
+    <div class="side-images-container hidden lg:flex w-1/4 flex-col justify-center items-center space-y-8 px-4">
+        <div class="side-image h-2/5 w-full">
+            <img src="{{ url_for('static', filename='img/cancha1.jpg') }}" alt="Cancha de fútbol 1" onerror="this.src='https://images.unsplash.com/photo-1542859452-9f5cb0e4e7bf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'">
+            <div class="image-content">
+                <h3 class="text-xl font-bold">Canchas Profesionales</h3>
+                <p class="text-blue-200">Superficie de primera calidad</p>
+            </div>
+        </div>
+        <div class="side-image h-2/5 w-full">
+            <img src="{{ url_for('static', filename='img/cancha2.jpg') }}" alt="Cancha de fútbol 2" onerror="this.src='https://images.unsplash.com/photo-1575361204480-aadea25e6e68?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'">
+            <div class="image-content">
+                <h3 class="text-xl font-bold">Iluminación Nocturna</h3>
+                <p class="text-blue-200">Disponible hasta altas horas</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="flex-1 hero-pattern flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-4xl rounded-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 p-8 text-center">
+                <div class="flex items-center justify-center mb-6">
+                    <div class="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-white text-2xl mr-4 pulse">
+                        <i class="fas fa-futbol"></i>
+                    </div>
+                    <h1 class="text-4xl font-bold text-white glow-text">Mi Cancha F5</h1>
+                </div>
+                <p class="text-blue-200 text-lg">Sistema de Reservas de Canchas Deportivas</p>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="p-8">
+                <!-- Mensajes flash -->
+                <div class="mb-8">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            <ul class="mensajes">
+                            {% for category, message in messages %}
+                                <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                            </ul>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+                
+                <!-- Acciones principales -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-gradient-to-br from-blue-900/40 to-blue-800/20 p-6 rounded-xl border border-blue-700/30">
+                        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-user-plus mr-2 text-blue-400"></i>
+                            Registrarse
+                        </h3>
+                        <p class="text-blue-200 mb-4">
+                            Crea una cuenta para comenzar a reservar turnos en nuestras canchas.
+                        </p>
+                        <div class="space-y-3">
+                            <a href="{{ url_for('crear_administrador') }}" target="_blank" class="btn bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2 px-4 rounded-lg inline-block w-full text-center hover:from-blue-500 hover:to-blue-600">
+                                <i class="fas fa-user-shield mr-2"></i> Registrar Administrador
+                            </a>
+                            <a href="{{ url_for('crear_usuario') }}" target="_blank" class="btn bg-gradient-to-r from-green-600 to-green-700 text-white py-2 px-4 rounded-lg inline-block w-full text-center hover:from-green-500 hover:to-green-600">
+                                <i class="fas fa-user mr-2"></i> Registrar Usuario
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-purple-900/40 to-purple-800/20 p-6 rounded-xl border border-purple-700/30">
+                        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-sign-in-alt mr-2 text-purple-400"></i>
+                            Iniciar Sesión
+                        </h3>
+                        <p class="text-purple-200 mb-4">
+                            Accede a tu cuenta para gestionar tus reservas o administrar el sistema.
+                        </p>
+                        <div class="space-y-3">
+                            <a href="{{ url_for('iniciar_sesion_usuario') }}" target="_blank" class="btn bg-gradient-to-r from-purple-600 to-purple-700 text-white py-2 px-4 rounded-lg inline-block w-full text-center hover:from-purple-500 hover:to-purple-600">
+                                <i class="fas fa-user mr-2"></i> Usuario
+                            </a>
+                            <a href="{{ url_for('iniciar_sesion_administrador') }}" target="_blank" class="btn bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-2 px-4 rounded-lg inline-block w-full text-center hover:from-indigo-500 hover:to-indigo-600">
+                                <i class="fas fa-user-shield mr-2"></i> Administrador
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Información adicional -->
+                <div class="bg-gradient-to-br from-gray-800/40 to-gray-900/50 p-6 rounded-xl border border-gray-700/30">
+                    <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                        <i class="fas fa-info-circle mr-2 text-blue-400"></i>
+                        Acerca de Mi Cancha F5
+                    </h3>
+                    <p class="text-gray-300 mb-4">
+                        Nuestro sistema te permite reservar canchas deportivas de manera rápida y sencilla. 
+                        Disfruta de una experiencia de usuario fluida y mantén el control de tus reservas.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-800/40 p-4 rounded-lg border border-gray-700/30 text-center">
+                            <div class="text-blue-400 text-2xl mb-2">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <h4 class="text-white font-semibold">Reservas Sencillas</h4>
+                            <p class="text-gray-400 text-sm">Reserva en pocos clicks</p>
+                        </div>
+                        <div class="bg-gray-800/40 p-4 rounded-lg border border-gray-700/30 text-center">
+                            <div class="text-green-400 text-2xl mb-2">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <h4 class="text-white font-semibold">Disponibilidad 08:00 23:30hs</h4>
+                            <p class="text-gray-400 text-sm">Acceso en cualquier momento</p>
+                        </div>
+                        <div class="bg-gray-800/40 p-4 rounded-lg border border-gray-700/30 text-center">
+                            <div class="text-purple-400 text-2xl mb-2">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <h4 class="text-white font-semibold">Seguro</h4>
+                            <p class="text-gray-400 text-sm">Tus datos protegidos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 p-4 text-center">
+                <p class="text-blue-200 text-sm">© 2025 Mi Cancha F5 - Todos los derechos reservados</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Imagen lateral derecha -->
+    <div class="side-images-container hidden lg:flex w-1/4 flex-col justify-center items-center space-y-8 px-4">
+        <div class="side-image h-2/5 w-full">
+            <img src="{{ url_for('static', filename='img/cancha3.jpg') }}" alt="Cancha de fútbol 3" onerror="this.src='https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'">
+            <div class="image-content">
+                <h3 class="text-xl font-bold">Instalaciones Premium</h3>
+                <p class="text-blue-200">Comodidades de primer nivel</p>
+            </div>
+        </div>
+        <div class="side-image h-2/5 w-full">
+            <img src="{{ url_for('static', filename='img/cancha4.jpg') }}" alt="Cancha de fútbol 4" onerror="this.src='https://images.unsplash.com/photo-1595009545055-d5ec1d6ce5f0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'">
+            <div class="image-content">
+                <h3 class="text-xl font-bold">Torneos y Eventos</h3>
+                <p class="text-blue-200">Organizamos competencias regulares</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Funcionalidad para cargar imágenes de respaldo si las originales no se encuentran
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Página de inicio cargada correctamente');
+        });
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime, timedelta
 from collections import defaultdict
-
+# aqui clavamos comentario
 # --- Configuración de la aplicación Flask ---
 app = Flask(__name__, template_folder='plantillas', static_folder='static')
 app.secret_key = 'una_clave_secreta_muy_segura_aqui_12345'

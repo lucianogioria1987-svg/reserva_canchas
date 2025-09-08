@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime, timedelta
 from collections import defaultdict
-# aqui clavamos comentario
+
 # --- Configuración de la aplicación Flask ---
 app = Flask(__name__, template_folder='plantillas', static_folder='static')
 app.secret_key = 'una_clave_secreta_muy_segura_aqui_12345'
@@ -668,7 +668,7 @@ def ver_turnos_administrador():
             reservas_por_dia[turno['fecha']].append(turno)
 
         return render_template('ver_turnos_administrador.html',
-                           reservas_por_dia=sorted(reservas_por_dia.items()))
+                           reservas_por_dia=sorted(reservas_por_dia.items(), reverse=True))
 
     except Exception as e:
         print(f"Error crítico en ver_turnos_administrador: {str(e)}")

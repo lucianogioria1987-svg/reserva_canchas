@@ -3,6 +3,7 @@ import json
 import random
 from datetime import datetime, timedelta
 from collections import defaultdict
+import calendar
 
 # Configuración de rutas
 CARPETA_DATOS = os.path.join(os.path.dirname(__file__), 'datos')
@@ -24,7 +25,7 @@ def guardar_datos(filepath, data):
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
 
-def generar_simulacion(usuarios, canchas, fecha_simulacion, max_id, total_reservas=28):  # Cambiado a 28
+def generar_simulacion(usuarios, canchas, fecha_simulacion, max_id, total_reservas=28):
     """Genera una simulación de reservas sin guardar"""
     # Configuración de la simulación (ajustado para 4-7 cancelaciones)
     reservas_activas = random.randint(21, 24)  # 28 - 21 = 7, 28 - 24 = 4
@@ -162,6 +163,72 @@ def obtener_fecha_simulacion():
         except ValueError:
             print("Formato de fecha inválido. Use YYYY-MM-DD (ej: 2023-12-31)")
 
+def obtener_mes_simulacion():
+    """Pide al usuario el mes y año para la simulación mensual"""
+    while True:
+        mes_input = input("\nIngrese el mes y año para simular (formato YYYY-MM) o presione Enter para el mes actual: ").strip()
+        
+        if not mes_input:
+            return datetime.now().strftime('%Y-%m')
+        
+        try:
+            # Validar formato de mes
+            datetime.strptime(mes_input + '-01', '%Y-%m-%d')
+            return mes_input
+        except ValueError:
+            print("Formato inválido. Use YYYY-MM (ej: 2023-12)")
+
+def generar_reservas_mensual(usuarios, canchas, reservas, reservas_canceladas, mes_simulacion):
+    """Genera reservas simuladas para todos los días de un mes"""
+    # Obtener el número de días en el mes
+    año, mes = map(int, mes_simulacion.split('-'))
+    num_dias = calendar.monthrange(año, mes)[1]
+    
+    # Encontrar el máximo ID existente
+    max_id = max([r['id'] for r in reservas]) if reservas else 0
+    
+    nuevas_reservas_totales = []
+    nuevas_canceladas_totales = []
+    
+    print(f"\nGenerando simulaciones para {mes_simulacion}...")
+    
+    for dia in range(1, num_dias + 1):
+        fecha_actual = f"{año:04d}-{mes:02d}-{dia:02d}"
+        
+        # Saltar días pasados si la fecha es anterior a hoy
+        if datetime.strptime(fecha_actual, '%Y-%m-%d') < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
+            print(f"Saltando día {fecha_actual} (fecha pasada)")
+            continue
+            
+        print(f"Simulando {fecha_actual}")
+        
+        # Generar simulación para el día actual
+        estadisticas = generar_simulacion(usuarios, canchas, fecha_actual, max_id, 28)  # Añadido el parámetro total_reservas
+        
+        # Verificar que la simulación se generó correctamente
+        if not estadisticas:
+            print(f"Error al generar simulación para {fecha_actual}. Continuando con el siguiente día.")
+            continue
+            
+        # Actualizar el max_id para el siguiente día
+        max_id += len(estadisticas['reservas_activas_final']) + len(estadisticas['reservas_canceladas_final'])
+        
+        # Acumular las reservas
+        nuevas_reservas_totales.extend(estadisticas['reservas_activas_final'])
+        nuevas_canceladas_totales.extend(estadisticas['reservas_canceladas_final'])
+    
+    # Combinar con datos existentes
+    todas_reservas = reservas + nuevas_reservas_totales
+    todas_canceladas = reservas_canceladas + nuevas_canceladas_totales
+
+    # Guardar los datos
+    guardar_datos(RESERVAS_FILE, todas_reservas)
+    guardar_datos(RESERVAS_CANCELADAS_FILE, todas_canceladas)
+
+    print(f"\nSimulación mensual completada para {mes_simulacion}!")
+    print(f"- Nuevas reservas activas: {len(nuevas_reservas_totales)} bloques")
+    print(f"- Nuevas reservas canceladas: {len(nuevas_canceladas_totales)} bloques")
+
 def generar_reservas_simuladas():
     # Cargar datos existentes
     usuarios = cargar_datos(USUARIOS_NORMAL_FILE)
@@ -179,56 +246,68 @@ def generar_reservas_simuladas():
 
     # Configuración inicial
     max_id = max([r['id'] for r in reservas]) if reservas else 0
-    total_reservas = 28  # Cambiado a 28 reservas diarias
     
-    # Pedir fecha de simulación
-    fecha_simulacion = obtener_fecha_simulacion()
-    print(f"\nFecha seleccionada para simulación: {fecha_simulacion}")
-    
-    # Bucle principal para regenerar simulaciones
+    # Pedir tipo de simulación
     while True:
-        # Generar nueva simulación
-        estadisticas = generar_simulacion(
-            usuarios, canchas, fecha_simulacion, max_id, total_reservas
-        )
+        tipo = input("\n¿Qué tipo de simulación desea? [d]ía / [m]ensual: ").strip().lower()
         
-        # Mostrar resumen
-        mostrar_resumen(estadisticas)
-        
-        # Pedir confirmación
-        opcion = input("\nOpciones: [s] Confirmar y guardar, [n] Generar nueva simulación, [c] Cambiar fecha, [q] Salir\nSeleccione: ").strip().lower()
-        
-        if opcion == 's':
-            # Combinar con datos existentes
-            todas_reservas = reservas + estadisticas['reservas_activas_final']
-            todas_canceladas = reservas_canceladas + estadisticas['reservas_canceladas_final']
+        if tipo == 'd':
+            # Simulación para un día específico (comportamiento original)
+            fecha_simulacion = obtener_fecha_simulacion()
+            print(f"\nFecha seleccionada para simulación: {fecha_simulacion}")
+            
+            # Bucle principal para regenerar simulaciones
+            while True:
+                estadisticas = generar_simulacion(usuarios, canchas, fecha_simulacion, max_id, 28)
+                mostrar_resumen(estadisticas)
+                
+                opcion = input("\nOpciones: [s] Confirmar y guardar, [n] Generar nueva simulación, [c] Cambiar fecha, [q] Salir\nSeleccione: ").strip().lower()
+                
+                if opcion == 's':
+                    todas_reservas = reservas + estadisticas['reservas_activas_final']
+                    todas_canceladas = reservas_canceladas + estadisticas['reservas_canceladas_final']
 
-            # Guardar los datos
-            guardar_datos(RESERVAS_FILE, todas_reservas)
-            guardar_datos(RESERVAS_CANCELADAS_FILE, todas_canceladas)
+                    guardar_datos(RESERVAS_FILE, todas_reservas)
+                    guardar_datos(RESERVAS_CANCELADAS_FILE, todas_canceladas)
 
-            print("\nSimulación guardada exitosamente!")
-            print(f"- Nuevas reservas activas: {len(estadisticas['reservas_activas_final'])} bloques")
-            print(f"- Nuevas reservas canceladas: {len(estadisticas['reservas_canceladas_final'])} bloques")
+                    print("\nSimulación guardada exitosamente!")
+                    print(f"- Nuevas reservas activas: {len(estadisticas['reservas_activas_final'])} bloques")
+                    print(f"- Nuevas reservas canceladas: {len(estadisticas['reservas_canceladas_final'])} bloques")
+                    break
+                    
+                elif opcion == 'n':
+                    print("\nGenerando nueva simulación para la misma fecha...")
+                    continue
+                    
+                elif opcion == 'c':
+                    fecha_simulacion = obtener_fecha_simulacion()
+                    print(f"\nFecha cambiada a: {fecha_simulacion}")
+                    print("Generando nueva simulación con la nueva fecha...")
+                    continue
+                    
+                elif opcion == 'q':
+                    print("\nOperación cancelada. No se guardaron cambios.")
+                    break
+                    
+                else:
+                    print("\nOpción no válida. Por favor seleccione s, n, c o q.")
             break
             
-        elif opcion == 'n':
-            print("\nGenerando nueva simulación para la misma fecha...")
-            continue
+        elif tipo == 'm':
+            # Simulación mensual
+            mes_simulacion = obtener_mes_simulacion()
+            print(f"\nMes seleccionado para simulación: {mes_simulacion}")
             
-        elif opcion == 'c':
-            # Cambiar fecha de simulación
-            fecha_simulacion = obtener_fecha_simulacion()
-            print(f"\nFecha cambiada a: {fecha_simulacion}")
-            print("Generando nueva simulación con la nueva fecha...")
-            continue
-            
-        elif opcion == 'q':
-            print("\nOperación cancelada. No se guardaron cambios.")
+            # Confirmar antes de generar
+            confirmar = input("¿Está seguro de generar simulaciones para todo el mes? [s]í / [n]o: ").strip().lower()
+            if confirmar == 's':
+                generar_reservas_mensual(usuarios, canchas, reservas, reservas_canceladas, mes_simulacion)
+            else:
+                print("Operación cancelada.")
             break
             
         else:
-            print("\nOpción no válida. Por favor seleccione s, n, c o q.")
+            print("Opción no válida. Por favor seleccione d o m.")
 
 if __name__ == '__main__':
     generar_reservas_simuladas()

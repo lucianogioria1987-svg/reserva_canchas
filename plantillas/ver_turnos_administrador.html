@@ -28,7 +28,6 @@
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #0f172a, #1e293b);
             min-height: 100vh;
-            padding: 2rem;
         }
         
         .admin-card {
@@ -36,11 +35,6 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            border-radius: 1rem;
-            padding: 2rem;
-            width: 100%;
-            max-width: 1000px;
-            margin: 0 auto;
         }
         
         .mensajes {
@@ -80,6 +74,34 @@
             color: #3b82f6;
         }
         
+        .content-section {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .tabla-turnos {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .tabla-turnos th, .tabla-turnos td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tabla-turnos th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        
+        .tabla-turnos td {
+            color: #cbd5e1;
+        }
+        
         .reservas-section {
             margin-bottom: 2rem;
             border-radius: 0.5rem;
@@ -90,23 +112,27 @@
             background: rgba(59, 130, 246, 0.2);
             padding: 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .tabla-turnos {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .tabla-turnos th, .tabla-turnos td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             color: #e2e8f0;
         }
         
-        .tabla-turnos th {
-            background: rgba(255, 255, 255, 0.05);
-            font-weight: 600;
+        .no-data {
+            padding: 2rem;
+            text-align: center;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        
+        .btn {
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
         }
         
         .action-link {
@@ -116,79 +142,98 @@
         .action-link:hover {
             color: #ef4444;
         }
-        
-        .no-data {
-            padding: 2rem;
-            text-align: center;
-            color: #94a3b8;
-            background: rgba(255, 255, 255, 0.03);
-        }
     </style>
 </head>
-<body>
-    <div class="admin-card">
-        <h1 class="text-3xl font-bold text-white mb-6 text-center">Turnos Reservados</h1>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul class="mensajes mb-6">
-                {% for category, message in messages %}
-                    <li class="{{ category }}">{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
+<body class="flex min-h-screen p-4 sm:p-8">
+    <!-- Card principal -->
+    <div class="admin-card w-full max-w-6xl mx-auto rounded-2xl overflow-hidden flex flex-col">
+        <!-- Contenido principal -->
+        <div class="flex-1 p-6 content-section">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-white glow-text">Turnos Reservados</h1>
+                <p class="text-blue-200">Listado de todos los turnos reservados en el sistema.</p>
+            </div>
+            
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="mensajes mb-6">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
 
-        {% if reservas_por_dia %}
-            {% for fecha, turnos in reservas_por_dia %}
-            <div class="reservas-section">
-                <div class="reservas-header">
-                    <h2 class="text-xl font-semibold text-white">{{ fecha }}</h2>
+            {% if reservas_por_dia %}
+                {% for fecha, turnos in reservas_por_dia|sort(attribute='0', reverse=true) %}
+                <div class="reservas-section mb-8">
+                    <div class="reservas-header">
+                        <h2 class="text-xl font-semibold">{{ fecha }}</h2>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="tabla-turnos">
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Cancha</th>
+                                    <th>Usuario</th>
+                                    <th>Monto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for turno in turnos %}
+                                <tr>
+                                    <td>{{ turno.hora_inicio }} - {{ turno.hora_fin }}</td>
+                                    <td>{{ turno.cancha_nombre }}</td>
+                                    <td>{{ turno.usuario }}</td>
+                                    <td>${{ "%.2f"|format(turno.monto_total) }}</td>
+                                    <td>
+                                        <a href="{{ url_for('cancelar_turno_admin', reserva_id=turno.id) }}" 
+                                           class="action-link"
+                                           onclick="return confirm('¿Cancelar este turno?')">
+                                            <i class="fas fa-times-circle mr-1"></i> Cancelar
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="tabla-turnos">
-                        <thead>
-                            <tr>
-                                <th>Hora</th>
-                                <th>Cancha</th>
-                                <th>Usuario</th>
-                                <th>Monto</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for turno in turnos %}
-                            <tr>
-                                <td>{{ turno.hora_inicio }} - {{ turno.hora_fin }}</td>
-                                <td>{{ turno.cancha_nombre }}</td>
-                                <td>{{ turno.usuario }}</td>
-                                <td>${{ "%.2f"|format(turno.monto_total) }}</td>
-                                <td>
-                                    <a href="{{ url_for('cancelar_turno_admin', reserva_id=turno.id) }}" 
-                                       class="action-link"
-                                       onclick="return confirm('¿Cancelar este turno?')">
-                                        <i class="fas fa-times-circle mr-1"></i> Cancelar
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                {% endfor %}
+            {% else %}
+                <div class="no-data rounded-xl">
+                    <i class="fas fa-calendar-times text-4xl mb-4"></i>
+                    <p>No hay turnos reservados actualmente</p>
                 </div>
+            {% endif %}
+            
+            <div class="mt-8 text-center">
+                <a href="{{ url_for('panel_administrador') }}" class="inline-flex items-center text-blue-400 hover:text-blue-300">
+                    <i class="fas fa-arrow-left mr-2"></i> Volver al Panel de Administración
+                </a>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-data">
-                <p>No hay turnos reservados actualmente</p>
-            </div>
-        {% endif %}
-        
-        <div class="mt-6 text-center">
-            <a href="{{ url_for('panel_administrador') }}" class="text-blue-400 hover:text-blue-300">
-                <i class="fas fa-arrow-left mr-1"></i> Volver al Panel
-            </a>
         </div>
     </div>
+
+    <script>
+        // Efectos de hover para mejorar la interactividad
+        document.addEventListener('DOMContentLoaded', function() {
+            const tableRows = document.querySelectorAll('.tabla-turnos tbody tr');
+            tableRows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    this.style.transition = 'background-color 0.3s ease';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
+        });
+    </script>
 </body>
 </html>

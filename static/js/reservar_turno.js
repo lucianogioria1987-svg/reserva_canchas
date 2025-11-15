@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="font-bold">${cancha.nombre}</span><br>
                             <span class="text-xs font-normal">Tamaño: ${cancha.tipo}</span><br>
                             <span class="text-xs font-normal">Condición: ${cancha.condicion}</span><br>
-                            <span class="text-sm font-semibold text-indigo-600">Valor: $${cancha.monto * 2}</span>
+                            <span class="text-sm font-semibold text-indigo-600">Valor: $${cancha.monto}</span>
                         </th>`
                     ).join('')}
                 </tr>

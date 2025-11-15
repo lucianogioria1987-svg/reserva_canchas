@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes y Estadísticas - Administrador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .admin-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .report-section {
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .report-header {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .report-table th, .report-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+        
+        .report-table th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+        
+        .report-table td:last-child {
+            text-align: right;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #3b82f6;
+        }
+        
+        .report-table .rank {
+            text-align: center;
+            font-weight: 700;
+            color: #94a3b8;
+            width: 5%;
+        }
+        
+        .no-data {
+            padding: 2rem;
+            text-align: center;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.03);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-card">
+        <h1 class="text-3xl font-bold text-white mb-6 text-center">Reportes y Estadísticas</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <div class="space-y-6">
+                <div class="report-section">
+                    <div class="report-header">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-users mr-2 text-green-400"></i>
+                            Usuarios que más Reservan
+                        </h2>
+                    </div>
+                    {% if top_usuarios_reservas %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Usuario</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for usuario, conteo in top_usuarios_reservas %}
+                                <tr>
+                                    <td class="rank">{{ loop.index }}</td>
+                                    <td>{{ usuario }}</td>
+                                    <td>{{ conteo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data"><p>No hay datos</p></div>
+                    {% endif %}
+                </div>
+
+                <div class="report-section">
+                    <div class="report-header">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-user-times mr-2 text-red-400"></i>
+                            Usuarios que más Cancelan
+                        </h2>
+                    </div>
+                    {% if top_usuarios_cancelan %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Usuario</th>
+                                    <th>Cancel.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for usuario, conteo in top_usuarios_cancelan %}
+                                <tr>
+                                    <td class="rank">{{ loop.index }}</td>
+                                    <td>{{ usuario }}</td>
+                                    <td>{{ conteo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data"><p>No hay datos</p></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="report-section">
+                    <div class="report-header">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-futbol mr-2 text-blue-400"></i>
+                            Canchas más Reservadas
+                        </h2>
+                    </div>
+                    {% if top_canchas %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Cancha</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cancha, conteo in top_canchas %}
+                                <tr>
+                                    <td class="rank">{{ loop.index }}</td>
+                                    <td>{{ cancha }}</td>
+                                    <td>{{ conteo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data"><p>No hay datos</p></div>
+                    {% endif %}
+                </div>
+
+                <div class="report-section">
+                    <div class="report-header">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-calendar-day mr-2 text-purple-400"></i>
+                            Demanda por Día (Semana)
+                        </h2>
+                    </div>
+                    {% if top_dias_semana %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Día</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dia, conteo in top_dias_semana %}
+                                <tr>
+                                    <td class="rank">{{ loop.index }}</td>
+                                    <td>{{ dia }}</td>
+                                    <td>{{ conteo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data"><p>No hay datos</p></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="report-section">
+                    <div class="report-header">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-arrow-trend-up mr-2 text-green-400"></i>
+                            Horarios con Más Demanda
+                        </h2>
+                    </div>
+                    {% if horarios_mas_demanda %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Hora</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for hora, conteo in horarios_mas_demanda %}
+                                <tr>
+                                    <td class="rank">{{ loop.index }}</td>
+                                    <td>{{ hora }}</td>
+                                    <td>{{ conteo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data"><p>No hay datos</p></div>
+                    {% endif %}
+                </div>
+
+                <div class="report-section">
+                    <div class="report-header">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-arrow-trend-down mr-2 text-yellow-400"></i>
+                            Horarios con Menos Demanda
+                        </h2>
+                    </div>
+                    {% if horarios_menos_demanda %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Hora</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for hora, conteo in horarios_menos_demanda %}
+                                <tr>
+                                    <td class="rank">{{ loop.index }}</td>
+                                    <td>{{ hora }}</td>
+                                    <td>{{ conteo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-data"><p>No hay datos</p></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 text-center">
+            <a href="{{ url_for('panel_administrador') }}" class="text-blue-400 hover:text-blue-300">
+                <i class="fas fa-arrow-left mr-1"></i> Volver al Panel
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -197,22 +197,22 @@
                     <tbody>
                         {% for cancha in canchas %}
                         <tr>
-                            <td>{{ cancha.get('id', '') }}</td>
-                            <td>{{ cancha.get('nombre', '') }}</td>
-                            <td>{{ cancha.get('tipo', 'N/A') }}</td>
-                            <td>{{ cancha.get('condicion', 'N/A') }}</td>
-                            <td>${{ "%.2f"|format(cancha.get('monto', 0)) }}</td>
+                            <td>{{ cancha.id }}</td>
+                            <td>{{ cancha.nombre }}</td>
+                            <td>{{ cancha.tipo }}</td>
+                            <td>{{ cancha.condicion }}</td>
+                            <td>${{ "%.2f"|format(cancha.monto) }}</td>
                             <td>
-                                <a href="{{ url_for('editar_cancha', cancha_id=cancha.get('id', 0)) }}" class="action-link">
+                                <a href="{{ url_for('editar_cancha', cancha_id=cancha.id) }}" class="action-link">
                                     <i class="fas fa-edit mr-1"></i> Editar
                                 </a>
-                                <a href="{{ url_for('eliminar_cancha', cancha_id=cancha.get('id', 0)) }}" class="action-link delete" onclick="return confirm('¿Estás seguro de que deseas eliminar esta cancha?');">
+                                <a href="{{ url_for('eliminar_cancha', cancha_id=cancha.id) }}" class="action-link delete" onclick="return confirm('¿Estás seguro de que deseas eliminar esta cancha?');">
                                     <i class="fas fa-trash mr-1"></i> Eliminar
                                 </a>
                             </td>
                         </tr>
                         {% endfor %}
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
         {% else %}
@@ -220,7 +220,6 @@
         {% endif %}
     </div>
 
-    <!-- Formulario para agregar una nueva cancha -->
     <div class="admin-card w-full max-w-6xl">
         <h2 class="text-2xl font-bold text-white mb-4 text-center">Agregar Nueva Cancha</h2>
         <form action="{{ url_for('agregar_cancha') }}" method="post">
@@ -244,9 +243,8 @@
                     <label for="condicion">Condición:</label>
                     <select id="condicion" name="condicion" required>
                         <option value="Excelente">Excelente</option>
-                        <option value="Buena">Buena</option>
-                        <option value="Regular">Regular</option>
-                        <option value="En Mantenimiento">En Mantenimiento</option>
+                        <option value="descubierto">Descubierto</option>
+                        <option value="techado">Techado</option>
                     </select>
                 </div>
                 

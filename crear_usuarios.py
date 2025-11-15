@@ -1,40 +1,25 @@
 import os
-import json
 import random
 
-# Definir la ruta del archivo de usuarios
-CARPETA_DATOS = os.path.join(os.path.dirname(__file__), 'datos')
-USUARIOS_NORMAL_FILE = os.path.join(CARPETA_DATOS, 'usuarios.json')
+# --- IMPORTANTE: Importamos la app, la DB y el modelo Usuario ---
+# Esto permite que este script se conecte a tu base de datos
+from app import app, db, Usuario
 
-def cargar_datos_json(filepath):
-    """Carga datos desde un archivo JSON. Si no existe o está vacío, retorna una lista vacía."""
-    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
-        return []
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if not isinstance(data, list):
-                return []
-            return data
-    except (json.JSONDecodeError, Exception) as e:
-        print(f"Error al cargar {filepath}: {e}")
-        return []
+def crear_usuarios_automaticos(num_usuarios=150):
+    """
+    Crea 150 usuarios automáticos en la base de datos MySQL 
+    si la tabla de usuarios está vacía.
+    """
+    print(f"Iniciando la creación de {num_usuarios} usuarios...")
 
-def guardar_datos_json(filepath, data):
-    """Guarda datos en un archivo JSON."""
-    try:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
-        print(f"Datos guardados exitosamente en {filepath}.")
-    except Exception as e:
-        print(f"Error al guardar {filepath}: {e}")
+    # --- 1. VERIFICAMOS LA BASE DE DATOS (NO EL JSON) ---
+    if Usuario.query.count() > 0:
+        print(f"La tabla 'usuarios' ya tiene datos ({Usuario.query.count()} usuarios). No se agregarán nuevos.")
+        return
 
-def crear_usuarios_automaticos(num_usuarios=100):
-    """Crea un número específico de usuarios de forma automática y los guarda en el archivo JSON."""
-    print(f"Iniciando la creación de {num_usuarios} usuarios automáticos...")
+    print(f"La tabla 'usuarios' está vacía. Generando {num_usuarios} usuarios...")
 
-    # Listas de nombres y apellidos para generar datos realistas
+    # Listas de nombres y apellidos (de tu script original)
     nombres = ["Juan", "María", "Carlos", "Ana", "Luis", "Laura", "Pedro", "Sofía", "José", "Elena",
                "Miguel", "Isabel", "Javier", "Carmen", "Francisco", "Lucía", "Daniel", "Paula", "Jorge", "Martina",
                "Alejandro", "Sara", "Manuel", "Claudia", "Ricardo", "Andrea", "Fernando", "Julia", "Pablo", "Valeria",
@@ -47,35 +32,10 @@ def crear_usuarios_automaticos(num_usuarios=100):
                  "Suárez", "Ortega", "Delgado", "Castro", "Ortiz", "Rubio", "Marín", "Sanz", "Iglesias", "Medina",
                  "Garrido", "Cortes", "Castillo", "Santos", "Lozano", "Guerrero", "Cano", "Prieto", "Méndez", "Cruz"]
 
-    # Cargar los usuarios existentes para no sobrescribirlos
-    usuarios = cargar_datos_json(USUARIOS_NORMAL_FILE)
-    
-    # Obtener el ID más alto actual para evitar duplicados
-    max_id = 0
-    if usuarios:
-        try:
-            # Buscar el ID más alto entre los usuarios existentes
-            for user in usuarios:
-                if isinstance(user, dict) and 'id' in user:
-                    user_id = user['id']
-                    if isinstance(user_id, int) and user_id > max_id:
-                        max_id = user_id
-        except (ValueError, TypeError):
-            print("Error al procesar IDs existentes. Se reiniciará la numeración.")
-            max_id = 0
-
-    # Obtener DNIs existentes para evitar duplicados
     dnis_existentes = set()
     nombres_usuario_existentes = set()
     
-    for usuario in usuarios:
-        if isinstance(usuario, dict):
-            if 'dni' in usuario:
-                dnis_existentes.add(usuario['dni'])
-            if 'nombre_usuario' in usuario:
-                nombres_usuario_existentes.add(usuario['nombre_usuario'])
-
-    nuevos_usuarios = []
+    nuevos_usuarios_db = []
     usuarios_creados = 0
     
     while usuarios_creados < num_usuarios:
@@ -90,11 +50,10 @@ def crear_usuarios_automaticos(num_usuarios=100):
                 dnis_existentes.add(dni)
                 break
         
-        # Generar nombre de usuario único
-        base_usuario = f"usuario{max_id + usuarios_creados + 1}"
+        # Generar nombre de usuario único (como en tu script original)
+        base_usuario = f"usuario{usuarios_creados + 1}"
         nombre_usuario = base_usuario
         
-        # Verificar que el nombre de usuario no exista (aunque es poco probable con este formato)
         contador = 1
         while nombre_usuario in nombres_usuario_existentes:
             nombre_usuario = f"{base_usuario}_{contador}"
@@ -102,31 +61,36 @@ def crear_usuarios_automaticos(num_usuarios=100):
         
         nombres_usuario_existentes.add(nombre_usuario)
         
-        # Usar la contraseña fija "Contraseña1!" para todos los usuarios
-        contrasena = "Contraseña1!"
+        # --- 2. CREAR EL OBJETO DE BASE DE DATOS ---
+        # (El 'id' se asigna automáticamente por la DB)
+        nuevo_usuario = Usuario(
+            nombre=nombre,
+            apellido=apellido,
+            dni=dni,
+            nombre_usuario=nombre_usuario
+        )
         
-        # Crear el usuario con todos los campos requeridos
-        nuevo_usuario = {
-            "id": max_id + usuarios_creados + 1,
-            "nombre": nombre,
-            "apellido": apellido,
-            "dni": dni,
-            "nombre_usuario": nombre_usuario,
-            "contrasena": contrasena
-        }
+        # --- 3. ASIGNAR Y HASHEAR LA CONTRASEÑA ---
+        # (Usa la función set_password que definimos en el modelo)
+        nuevo_usuario.set_password("Contraseña1!")
         
-        nuevos_usuarios.append(nuevo_usuario)
+        nuevos_usuarios_db.append(nuevo_usuario)
         usuarios_creados += 1
         
-        print(f"Usuario {max_id + usuarios_creados}: {nombre_usuario} - {nombre} {apellido} - DNI: {dni}")
+        print(f"Usuario {usuarios_creados}: {nombre_usuario} - {nombre} {apellido} - DNI: {dni}")
 
-    # Combinar la lista existente con los nuevos usuarios
-    usuarios.extend(nuevos_usuarios)
-    
-    # Guardar la lista completa de usuarios
-    guardar_datos_json(USUARIOS_NORMAL_FILE, usuarios)
-    print(f"¡Proceso completado! Se han creado y guardado {usuarios_creados} usuarios.")
-    print("Todos los usuarios tienen la contraseña: Contraseña1!")
+    # --- 4. GUARDAR TODO EN LA BASE DE DATOS ---
+    try:
+        db.session.add_all(nuevos_usuarios_db)
+        db.session.commit()
+        print(f"¡Proceso completado! Se han creado y guardado {usuarios_creados} usuarios en la base de datos.")
+        print("Todos los usuarios tienen la contraseña: Contraseña1!")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al guardar usuarios en la base de datos: {e}")
 
 if __name__ == '__main__':
-    crear_usuarios_automaticos(100)
+    # --- 5. ENVOLVER EN EL CONTEXTO DE LA APP ---
+    # (Necesario para que el script pueda hablar con la DB)
+    with app.app_context():
+        crear_usuarios_automaticos(150)

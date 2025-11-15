@@ -1,208 +1,344 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-import os
-import json
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, Counter
+
+# --- Importaciones de Terceros ---
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func 
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# --- Constantes Globales de Negocio ---
+# Define el rango de horas operativas para las reservas
+HORA_APERTURA = 14
+HORA_CIERRE = 23
 
 # --- Configuración de la aplicación Flask ---
 app = Flask(__name__, template_folder='plantillas', static_folder='static')
-app.secret_key = 'una_clave_secreta_muy_segura_aqui_12345'
+app.secret_key = 'una_clave_secreta_muy_segura_aqui_12345' # ¡IMPORTANTE: Cambiar por una variable de entorno en producción!
 app.permanent_session_lifetime = timedelta(minutes=30)
 
-# Rutas a los archivos JSON (dentro de la carpeta 'datos')
-CARPETA_DATOS = os.path.join(os.path.dirname(__file__), 'datos')
-USUARIOS_ADMIN_FILE = os.path.join(CARPETA_DATOS, 'administradores.json')
-USUARIOS_NORMAL_FILE = os.path.join(CARPETA_DATOS, 'usuarios.json')
-RESERVAS_FILE = os.path.join(CARPETA_DATOS, 'reservas.json')
-CANCHAS_FILE = os.path.join(CARPETA_DATOS, 'canchas.json')
-RESERVAS_CANCELADAS_FILE = os.path.join(CARPETA_DATOS, 'reservas_canceladas.json')
+# --- INICIO: Configuración de la Base de Datos MySQL ---
+# ¡IMPORTANTE: Usar variables de entorno en producción para estas credenciales!
+USUARIO_DB = 'root'
+PASS_DB = 'Lisandro22' 
+HOST_DB = '127.0.0.1' 
+NOMBRE_DB = 'canchas_db' 
 
-# --- Funciones Auxiliares para JSON ---
-def cargar_datos_json(filepath):
-    """Carga datos desde un archivo JSON. Si no existe o está vacío/corrupto, retorna una lista vacía."""
-    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
-        return []
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if not isinstance(data, list):
-                return []
-            return data
-    except (json.JSONDecodeError, Exception) as e:
-        return []
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{USUARIO_DB}:{PASS_DB}@{HOST_DB}/{NOMBRE_DB}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+# --- FIN: Configuración de la Base de Datos MySQL ---
 
-def guardar_datos_json(filepath, data):
-    """Guarda datos en un archivo JSON."""
-    try:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
-    except Exception as e:
-        pass
 
-# Función para verificar si es administrador
+# --- INICIO: Definición de Modelos (Tablas de la DB) ---
+
+class Administrador(db.Model):
+    """
+    Modelo de la tabla 'administradores'.
+    Almacena los usuarios con permisos de administrador.
+    """
+    __tablename__ = 'administradores' 
+    id = db.Column(db.Integer, primary_key=True)
+    nombre_usuario = db.Column(db.String(80), unique=True, nullable=False)
+    contrasena_hash = db.Column(db.String(256), nullable=False) 
+
+    def set_password(self, contrasena):
+        """Genera un hash seguro para la contraseña y lo almacena."""
+        self.contrasena_hash = generate_password_hash(contrasena)
+
+    def check_password(self, contrasena):
+        """Verifica si la contraseña proporcionada coincide con el hash almacenado."""
+        return check_password_hash(self.contrasena_hash, contrasena)
+
+class Usuario(db.Model):
+    """
+    Modelo de la tabla 'usuarios'.
+    Almacena los usuarios regulares del sistema (clientes).
+    """
+    __tablename__ = 'usuarios' 
+    id = db.Column(db.Integer, primary_key=True)
+    nombre_usuario = db.Column(db.String(80), unique=True, nullable=False)
+    contrasena_hash = db.Column(db.String(256), nullable=False)
+    nombre = db.Column(db.String(100))
+    apellido = db.Column(db.String(100))
+    dni = db.Column(db.String(20), unique=True, nullable=False)
+    
+    # Relación: Un usuario puede tener muchas reservas
+    reservas = db.relationship('Reserva', backref='usuario', lazy=True)
+
+    def set_password(self, contrasena):
+        """Genera un hash seguro para la contraseña y lo almacena."""
+        self.contrasena_hash = generate_password_hash(contrasena)
+
+    def check_password(self, contrasena):
+        """Verifica si la contraseña proporcionada coincide con el hash almacenado."""
+        return check_password_hash(self.contrasena_hash, contrasena)
+
+class Cancha(db.Model):
+    """
+    Modelo de la tabla 'canchas'.
+    Almacena la información de cada cancha disponible.
+    """
+    __tablename__ = 'canchas' 
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), unique=True, nullable=False)
+    tipo = db.Column(db.String(50)) # Ej: "Fútbol 5", "Pádel"
+    condicion = db.Column(db.String(100)) # Ej: "Techada", "Aire libre"
+    monto = db.Column(db.Float, nullable=False) # Precio por hora
+    
+    # Relación: Una cancha puede estar en muchas reservas
+    reservas = db.relationship('Reserva', backref='cancha', lazy=True)
+
+class Reserva(db.Model):
+    """
+    Modelo de la tabla 'reservas'.
+    Esta es la tabla central que conecta Usuarios y Canchas en una fecha/hora.
+    """
+    __tablename__ = 'reservas' 
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.String(10), nullable=False) # Formato YYYY-MM-DD
+    hora_inicio = db.Column(db.String(5), nullable=False) # Formato HH:MM
+    hora_fin = db.Column(db.String(5), nullable=False) # Formato HH:MM
+    monto = db.Column(db.Float, nullable=False) # Monto al momento de la reserva
+    estado = db.Column(db.String(20), nullable=False, default='activa') # 'activa' o 'cancelada'
+    
+    # Claves foráneas que establecen las relaciones
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False) 
+    cancha_id = db.Column(db.Integer, db.ForeignKey('canchas.id'), nullable=False) 
+
+# --- FIN: Definición de Modelos ---
+
+
+# --- INICIO: Rutas de la Aplicación ---
+
+# --- Funciones Helper ---
+
 def verificar_admin():
+    """
+    Función helper de seguridad.
+    Verifica si el usuario en la sesión actual es un administrador.
+    Si no lo es, flashea un error y redirige al login de admin.
+    Si la sesión es válida, retorna None.
+    """
+    # Verifica que el rol 'administrador' esté en la sesión
     if 'rol' not in session or session['rol'] != 'administrador':
         flash('Acceso denegado. Por favor, inicia sesión como administrador.', 'error')
         return redirect(url_for('iniciar_sesion_administrador'))
-    return None
+    
+    # Verifica que el ID de admin en la sesión exista en la DB
+    admin = Administrador.query.get(session.get('user_id'))
+    if not admin:
+        flash('Sesión de administrador no válida.', 'error')
+        session.clear()
+        return redirect(url_for('iniciar_sesion_administrador'))
+        
+    return None # Si todo está OK, no retorna nada
 
-# --- Rutas de la Aplicación ---
+# --- Rutas de Autenticación y Públicas ---
 
 @app.route('/')
 def inicio():
+    """
+    RUTA: Página de inicio (Landing page).
+    Renderiza la plantilla de bienvenida 'inicio.html'.
+    """
     return render_template('inicio.html')
 
 @app.route('/crear_administrador', methods=['GET', 'POST'])
 def crear_administrador():
+    """
+    RUTA: Registro de un nuevo Administrador.
+    GET: Muestra el formulario de registro.
+    POST: Procesa el formulario, valida y crea un nuevo admin en la DB.
+    """
     if request.method == 'POST':
         nombre_usuario = request.form['nombre_usuario']
         contrasena = request.form['contrasena']
-        administradores = cargar_datos_json(USUARIOS_ADMIN_FILE)
-
-        if any(admin['nombre_usuario'] == nombre_usuario for admin in administradores):
+        
+        # Validación: Evitar usuarios duplicados
+        admin_existente = Administrador.query.filter_by(nombre_usuario=nombre_usuario).first()
+        if admin_existente:
             flash('El nombre de usuario ya existe.', 'error')
             return redirect(url_for('crear_administrador'))
 
-        administradores.append({'nombre_usuario': nombre_usuario, 'contrasena': contrasena})
-        guardar_datos_json(USUARIOS_ADMIN_FILE, administradores)
-        flash('Administrador creado exitosamente. ¡Ahora inicia sesión!', 'success')
-        return redirect(url_for('iniciar_sesion_administrador'))
+        # Creación del nuevo administrador
+        nuevo_admin = Administrador(nombre_usuario=nombre_usuario)
+        nuevo_admin.set_password(contrasena) # Hashea la contraseña
+        
+        try:
+            db.session.add(nuevo_admin)
+            db.session.commit()
+            flash('Administrador creado exitosamente.', 'success')
+            return redirect(url_for('iniciar_sesion_administrador'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear administrador: {e}', 'error')
+            return redirect(url_for('crear_administrador'))
+            
     return render_template('crear_administrador.html')
 
 @app.route('/crear_usuario', methods=['GET', 'POST'])
 def crear_usuario():
+    """
+    RUTA: Registro de un nuevo Usuario (Cliente).
+    GET: Muestra el formulario de registro.
+    POST: Procesa el formulario, valida (usuario y DNI únicos) y crea un nuevo usuario.
+          Inicia sesión automáticamente al usuario tras el registro.
+    """
     if request.method == 'POST':
         nombre = request.form['nombre']
         apellido = request.form['apellido']
         dni = request.form['dni']
         nombre_usuario = request.form['nombre_usuario']
         contrasena = request.form['contrasena']
-        usuarios = cargar_datos_json(USUARIOS_NORMAL_FILE)
-
-        # Verificar si el nombre de usuario ya existe
-        if any(user['nombre_usuario'] == nombre_usuario for user in usuarios):
+        
+        # Validación: Evitar usuarios duplicados
+        user_existente = Usuario.query.filter_by(nombre_usuario=nombre_usuario).first()
+        if user_existente:
             flash('El nombre de usuario ya existe.', 'error')
             return redirect(url_for('crear_usuario'))
             
-        # Verificar si el DNI ya existe
-        if any(user.get('dni') == dni for user in usuarios):
+        # Validación: Evitar DNI duplicados
+        dni_existente = Usuario.query.filter_by(dni=dni).first()
+        if dni_existente:
             flash('El DNI ya está registrado.', 'error')
             return redirect(url_for('crear_usuario'))
 
-        # Crear nuevo usuario con todos los campos
-        nuevo_usuario = {
-            'nombre': nombre,
-            'apellido': apellido,
-            'dni': dni,
-            'nombre_usuario': nombre_usuario,
-            'contrasena': contrasena
-        }
-
-        usuarios.append(nuevo_usuario)
-        guardar_datos_json(USUARIOS_NORMAL_FILE, usuarios)
+        # Creación del nuevo usuario
+        nuevo_usuario = Usuario(
+            nombre=nombre, apellido=apellido, dni=dni, nombre_usuario=nombre_usuario
+        )
+        nuevo_usuario.set_password(contrasena) # Hashea la contraseña
         
-        # Iniciar sesión automáticamente después del registro
-        session.permanent = True
-        session['rol'] = 'usuario'
-        session['nombre_usuario'] = nombre_usuario
-        session['nombre_completo'] = f"{nombre} {apellido}"
-        session['dni'] = dni
-        
-        # Redirigir al panel de usuario
-        return redirect(url_for('panel_usuario'))
+        try:
+            db.session.add(nuevo_usuario)
+            db.session.commit()
+            
+            # Autenticación automática post-registro
+            session.permanent = True
+            session['rol'] = 'usuario'
+            session['user_id'] = nuevo_usuario.id
+            session['nombre_usuario'] = nuevo_usuario.nombre_usuario
+            session['nombre_completo'] = f"{nuevo_usuario.nombre} {nuevo_usuario.apellido}"
+            session['dni'] = nuevo_usuario.dni
+            
+            return redirect(url_for('panel_usuario'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear usuario: {e}', 'error')
+            return redirect(url_for('crear_usuario'))
     
     return render_template('crear_usuario.html')
 
 @app.route('/iniciar_sesion_usuario', methods=['GET', 'POST'])
 def iniciar_sesion_usuario():
+    """
+    RUTA: Login de Usuarios (Clientes).
+    GET: Muestra el formulario de login.
+    POST: Valida las credenciales (usuario y contraseña hasheada) e inicia la sesión.
+    """
     if request.method == 'POST':
         nombre_usuario = request.form['nombre_usuario']
         contrasena = request.form['contrasena']
-        usuarios = cargar_datos_json(USUARIOS_NORMAL_FILE)
+        
+        # Buscar al usuario en la DB
+        user = Usuario.query.filter_by(nombre_usuario=nombre_usuario).first()
 
-        user_found = False
-        for user in usuarios:
-            if user['nombre_usuario'] == nombre_usuario and user['contrasena'] == contrasena:
-                session.permanent = True
-                session['rol'] = 'usuario'
-                session['nombre_usuario'] = nombre_usuario
-                session['nombre_completo'] = f"{user.get('nombre', '')} {user.get('apellido', '')}"
-                session['dni'] = user.get('dni', '')
-                flash(f'¡Bienvenido, {nombre_usuario}!', 'success')
-                user_found = True
-                break
-
-        if user_found:
+        # Verificar la contraseña con el hash
+        if user and user.check_password(contrasena):
+            session.permanent = True
+            session['rol'] = 'usuario'
+            session['user_id'] = user.id
+            session['nombre_usuario'] = user.nombre_usuario
+            session['nombre_completo'] = f"{user.nombre} {user.apellido}"
+            session['dni'] = user.dni
+            flash(f'¡Bienvenido, {user.nombre_usuario}!', 'success')
             return redirect(url_for('panel_usuario'))
         else:
             flash('Nombre de usuario o contraseña incorrectos.', 'error')
             return redirect(url_for('iniciar_sesion_usuario'))
+            
     return render_template('iniciar_sesion_usuario.html')
+
 @app.route('/iniciar_sesion_administrador', methods=['GET', 'POST'])
 def iniciar_sesion_administrador():
+    """
+    RUTA: Login de Administradores.
+    GET: Muestra el formulario de login de admin.
+    POST: Valida las credenciales (admin y contraseña hasheada) e inicia la sesión.
+    """
     if request.method == 'POST':
         nombre_usuario = request.form['nombre_usuario']
         contrasena = request.form['contrasena']
-        administradores = cargar_datos_json(USUARIOS_ADMIN_FILE)
+        
+        # Buscar al admin en la DB
+        admin = Administrador.query.filter_by(nombre_usuario=nombre_usuario).first()
 
-        admin_found = False
-        for admin in administradores:
-            if admin['nombre_usuario'] == nombre_usuario and admin['contrasena'] == contrasena:
-                session.permanent = True
-                session['rol'] = 'administrador'
-                session['nombre_usuario'] = nombre_usuario
-                flash(f'¡Bienvenido, Administrador {nombre_usuario}!', 'success')
-                admin_found = True
-                break
-
-        if admin_found:
+        # Verificar la contraseña con el hash
+        if admin and admin.check_password(contrasena):
+            session.permanent = True
+            session['rol'] = 'administrador'
+            session['user_id'] = admin.id
+            session['nombre_usuario'] = admin.nombre_usuario
+            flash(f'¡Bienvenido, Administrador {admin.nombre_usuario}!', 'success')
             return redirect(url_for('panel_administrador'))
         else:
             flash('Nombre de usuario o contraseña incorrectos.', 'error')
             return redirect(url_for('iniciar_sesion_administrador'))
+            
     return render_template('iniciar_sesion_administrador.html')
+
+@app.route('/cerrar_sesion')
+def cerrar_sesion():
+    """
+    RUTA: Cierra la sesión (logout).
+    Limpia todos los datos de la sesión y redirige al inicio.
+    """
+    session.clear()
+    flash('Has cerrado sesión exitosamente.', 'info')
+    return redirect(url_for('inicio'))
+
+# --- Rutas del Panel de Administrador ---
 
 @app.route('/panel_administrador')
 def panel_administrador():
+    """
+    RUTA: Dashboard principal del Administrador.
+    Protegida por 'verificar_admin()'.
+    Calcula y muestra estadísticas clave (KPIs) del negocio.
+    """
+    # 1. Verificar permisos
     error_redirect = verificar_admin()
-    if error_redirect: 
-        return error_redirect
+    if error_redirect: return error_redirect
     
-    # Cargar datos necesarios
-    canchas = cargar_datos_json(CANCHAS_FILE)
-    usuarios = cargar_datos_json(USUARIOS_NORMAL_FILE)
-    reservas = cargar_datos_json(RESERVAS_FILE)
+    # 2. Calcular KPIs (consultas SQL de agregación)
+    total_canchas = db.session.query(func.count(Cancha.id)).scalar()
+    total_usuarios = db.session.query(func.count(Usuario.id)).scalar()
     
-    # 1. Total de canchas
-    total_canchas = len(canchas)
-    
-    # 2. Total de usuarios
-    total_usuarios = len(usuarios)
-    
-    # 3. Reservas hoy (fecha actual)
     hoy = datetime.now().strftime('%Y-%m-%d')
-    reservas_hoy = [r for r in reservas if r['fecha'] == hoy]
+    total_reservas_hoy = db.session.query(func.count(Reserva.id)).filter(
+        Reserva.fecha == hoy,
+        Reserva.estado == 'activa'
+    ).scalar()
     
-    # Contar reservas únicas (agrupadas por clave_agrupacion)
-    reservas_unicas = set()
-    for r in reservas_hoy:
-        reservas_unicas.add(r['clave_agrupacion'])
-    total_reservas_hoy = len(reservas_unicas)
-    
-    # 4. Ingresos mensuales (mes calendario actual)
+    # Calcular ingresos del mes actual
     mes_actual = datetime.now().month
     anio_actual = datetime.now().year
-    ingresos_mensuales = 0.0
+    inicio_mes = f"{anio_actual}-{mes_actual:02d}-01"
     
-    for r in reservas:
-        try:
-            fecha_reserva = datetime.strptime(r['fecha'], '%Y-%m-%d')
-            if fecha_reserva.month == mes_actual and fecha_reserva.year == anio_actual:
-                ingresos_mensuales += float(r['cancha_monto'])
-        except:
-            continue
+    if mes_actual == 12: # Manejo del fin de año
+        fin_mes = f"{anio_actual}-12-31"
+    else:
+        fin_mes_dt = datetime(anio_actual, mes_actual + 1, 1) - timedelta(days=1)
+        fin_mes = fin_mes_dt.strftime('%Y-%m-%d')
 
+    ingresos_mensuales = db.session.query(func.sum(Reserva.monto)).filter(
+        Reserva.estado == 'activa',
+        Reserva.fecha.between(inicio_mes, fin_mes)
+    ).scalar() or 0.0 # 'or 0.0' para evitar que 'None' rompa la plantilla
+
+    # 3. Renderizar plantilla con los datos
     return render_template(
         'panel_administrador.html',
         nombre_usuario=session['nombre_usuario'],
@@ -212,300 +348,27 @@ def panel_administrador():
         ingresos_mensuales=round(ingresos_mensuales, 2)
     )
 
-@app.route('/panel_usuario')
-def panel_usuario():
-    if 'rol' not in session or session['rol'] != 'usuario':
-        flash('Acceso denegado. Por favor, inicia sesión como usuario.', 'error')
-        return redirect(url_for('iniciar_sesion_usuario'))
-    
-    usuario = session['nombre_usuario']
-    
-    # Obtener los turnos del usuario
-    reservas = cargar_datos_json(RESERVAS_FILE)
-    
-    # Agrupar las reservas de 30 minutos en turnos de 1 hora para visualización
-    mis_reservas_agrupadas = defaultdict(dict)
-    for r in sorted(reservas, key=lambda x: (x['fecha'], x['hora_inicio'])):
-        if r['usuario'] == usuario:
-            clave = r['clave_agrupacion']
-            if clave not in mis_reservas_agrupadas:
-                mis_reservas_agrupadas[clave] = {
-                    'fecha': r['fecha'],
-                    'cancha_id': r['cancha_id'],
-                    'cancha_nombre': r['cancha_nombre'],
-                    'cancha_tipo': r.get('cancha_tipo', 'N/A'),
-                    'cancha_condicion': r.get('cancha_condicion', 'N/A'),
-                    'monto': 0,
-                    'bloques': [],
-                    'id': r['id'],
-                    'clave_agrupacion': clave,
-                    'hora_inicio': r['hora_inicio'],
-                    'hora_fin': ''
-                }
-            mis_reservas_agrupadas[clave]['bloques'].append(r)
-            mis_reservas_agrupadas[clave]['monto'] += r['cancha_monto']
-            mis_reservas_agrupadas[clave]['hora_fin'] = r['hora_fin']
-    
-    todos_los_turnos = sorted(list(mis_reservas_agrupadas.values()), 
-                       key=lambda x: (x['fecha'], x['hora_inicio']))
-    
-    # Filtrar solo los próximos turnos (a partir de hoy)
-    hoy = datetime.now().strftime('%Y-%m-%d')
-    ahora = datetime.now().strftime('%H:%M')
-    
-    proximos_turnos = []
-    for turno in todos_los_turnos:
-        # Si la fecha del turno es hoy, verificar la hora
-        if turno['fecha'] == hoy:
-            if turno['hora_inicio'] >= ahora:
-                proximos_turnos.append(turno)
-        # Si la fecha del turno es futura
-        elif turno['fecha'] > hoy:
-            proximos_turnos.append(turno)
-    
-    # Ordenar los próximos turnos por fecha y hora
-    proximos_turnos = sorted(proximos_turnos, key=lambda x: (x['fecha'], x['hora_inicio']))
-
-    return render_template('panel_usuario.html', 
-                         nombre_usuario=usuario, 
-                         proximos_turnos=proximos_turnos,
-                         total_turnos=len(todos_los_turnos))
-
-@app.route('/cerrar_sesion')
-def cerrar_sesion():
-    session.pop('nombre_usuario', None)
-    session.pop('rol', None)
-    flash('Has cerrado sesión exitosamente.', 'info')
-    return redirect(url_for('inicio'))
-
-# --- RUTAS PARA LAS FUNCIONES DE USUARIO ---
-
-@app.route('/reservar_turno', methods=['GET', 'POST'])
-def reservar_turno():
-    if 'rol' not in session or session['rol'] != 'usuario':
-        flash('Debes iniciar sesión como usuario para reservar un turno.', 'error')
-        return redirect(url_for('iniciar_sesion_usuario'))
-    
-    if request.method == 'POST':
-        try:
-            fecha_str = request.form['fecha']
-            hora_inicio_str = request.form['hora_inicio']
-            cancha_id = int(request.form['cancha'])
-            usuario = session['nombre_usuario']
-            
-            canchas = cargar_datos_json(CANCHAS_FILE)
-            reservas = cargar_datos_json(RESERVAS_FILE)
-            cancha_seleccionada = next((c for c in canchas if c['id'] == cancha_id), None)
-
-            if not cancha_seleccionada:
-                flash('Cancha no encontrada.', 'error')
-                return redirect(url_for('reservar_turno'))
-
-            # Convertir fechas y horas a objetos datetime
-            fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
-            hora_inicio_dt = datetime.strptime(hora_inicio_str, '%H:%M')
-            
-            # Crear los dos bloques de 30 minutos
-            hora_bloque1_dt = hora_inicio_dt
-            hora_bloque2_dt = hora_inicio_dt + timedelta(minutes=30)
-            
-            fecha_bloque1 = fecha_str
-            fecha_bloque2 = fecha_str
-            
-            # Convertir a formato de cadena para guardar en JSON
-            hora_bloque1_str = hora_bloque1_dt.strftime('%H:%M')
-            hora_bloque2_str = hora_bloque2_dt.strftime('%H:%M')
-            hora_fin_str = (hora_inicio_dt + timedelta(hours=1)).strftime('%H:%M')
-
-            # Validar que los turnos no estén ocupados
-            reserva_existente1 = any(r['fecha'] == fecha_bloque1 and r['hora_inicio'] == hora_bloque1_str and r['cancha_id'] == cancha_id for r in reservas)
-            reserva_existente2 = any(r['fecha'] == fecha_bloque2 and r['hora_inicio'] == hora_bloque2_str and r['cancha_id'] == cancha_id for r in reservas)
-            
-            if reserva_existente1 or reserva_existente2:
-                flash('Lo sentimos, al menos uno de los turnos seleccionados ya ha sido reservado.', 'error')
-                return redirect(url_for('reservar_turno'))
-            
-            max_id = max([r['id'] for r in reservas]) if reservas else 0
-            
-            # Generar una clave única para agrupar los dos bloques del turno de 1 hora
-            clave_agrupacion = f"{usuario}-{fecha_str}-{hora_inicio_str}-{cancha_id}"
-
-            # Guardar ambos turnos de 30 minutos con la clave de agrupación
-            nueva_reserva1 = {
-                'id': max_id + 1,
-                'clave_agrupacion': clave_agrupacion,
-                'usuario': usuario,
-                'fecha': fecha_bloque1,
-                'hora_inicio': hora_bloque1_str,
-                'hora_fin': (hora_bloque1_dt + timedelta(minutes=30)).strftime('%H:%M'),
-                'cancha_id': cancha_seleccionada['id'],
-                'cancha_nombre': cancha_seleccionada['nombre'],
-                'cancha_tipo': cancha_seleccionada.get('tipo', 'N/A'),
-                'cancha_condicion': cancha_seleccionada.get('condicion', 'N/A'),
-                'cancha_monto': cancha_seleccionada.get('monto', 0) / 2
-            }
-            reservas.append(nueva_reserva1)
-            
-            nueva_reserva2 = {
-                'id': max_id + 2,
-                'clave_agrupacion': clave_agrupacion,
-                'usuario': usuario,
-                'fecha': fecha_bloque2,
-                'hora_inicio': hora_bloque2_str,
-                'hora_fin': hora_fin_str,
-                'cancha_id': cancha_seleccionada['id'],
-                'cancha_nombre': cancha_seleccionada['nombre'],
-                'cancha_tipo': cancha_seleccionada.get('tipo', 'N/A'),
-                'cancha_condicion': cancha_seleccionada.get('condicion', 'N/A'),
-                'cancha_monto': cancha_seleccionada.get('monto', 0) / 2
-            }
-            reservas.append(nueva_reserva2)
-            
-            guardar_datos_json(RESERVAS_FILE, reservas)
-            flash('Turno reservado exitosamente.', 'success')
-            return redirect(url_for('mis_turnos'))
-
-        except (ValueError, KeyError) as e:
-            flash(f'Error en la reserva. Por favor, revisa los datos: {e}', 'error')
-            return redirect(url_for('reservar_turno'))
-
-    canchas = cargar_datos_json(CANCHAS_FILE)
-    return render_template('reservar_turno.html', canchas=canchas)
-
-@app.route('/api/turnos_disponibles/<fecha>')
-def api_turnos_disponibles(fecha):
-    try:
-        if 'rol' not in session or session['rol'] != 'usuario':
-            return jsonify({'error': 'No autorizado'}), 403
-
-        reservas = cargar_datos_json(RESERVAS_FILE)
-        canchas = cargar_datos_json(CANCHAS_FILE)
-
-        # Crear un diccionario de horarios ocupados por cancha
-        horarios_ocupados = defaultdict(set)
-        
-        for reserva in reservas:
-            if reserva['fecha'] == fecha:
-                # Agregar ambos bloques de 30 minutos como ocupados
-                hora_inicio = reserva['hora_inicio']
-                hora_bloque1 = datetime.strptime(hora_inicio, '%H:%M').strftime('%H:%M')
-                hora_bloque2 = (datetime.strptime(hora_inicio, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                horarios_ocupados[reserva['cancha_id']].add(hora_bloque1)
-                horarios_ocupados[reserva['cancha_id']].add(hora_bloque2)
-
-        # Preparar la respuesta
-        horarios_disponibles = {}
-        for cancha in canchas:
-            cancha_id = cancha['id']
-            horarios_disponibles[cancha_id] = []
-            
-            # Generar horarios posibles (de 14:00 a 23:00 en intervalos de 1 hora)
-            for hora in range(14, 23):
-                hora_inicio = f"{hora:02d}:00"
-                hora_fin = f"{hora+1:02d}:00"
-                
-                # Verificar disponibilidad de ambos bloques de 30 minutos
-                hora_bloque1 = hora_inicio
-                hora_bloque2 = (datetime.strptime(hora_inicio, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                
-                if (hora_bloque1 not in horarios_ocupados.get(cancha_id, set()) and 
-                    hora_bloque2 not in horarios_ocupados.get(cancha_id, set())):
-                    horarios_disponibles[cancha_id].append({
-                        'hora_inicio': hora_inicio,
-                        'hora_fin': hora_fin
-                    })
-
-        return jsonify({
-            'canchas': canchas,
-            'horarios_disponibles': horarios_disponibles
-        })
-
-    except Exception as e:
-        app.logger.error(f"Error en api_turnos_disponibles: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
-@app.route('/mis_turnos')
-def mis_turnos():
-    if 'rol' not in session or session['rol'] != 'usuario':
-        flash('Debes iniciar sesión como usuario para ver tus turnos.', 'error')
-        return redirect(url_for('iniciar_sesion_usuario'))
-
-    usuario = session['nombre_usuario']
-    reservas = cargar_datos_json(RESERVAS_FILE)
-    
-    # Agrupar las reservas de 30 minutos en turnos de 1 hora para visualización
-    mis_reservas_agrupadas = defaultdict(dict)
-    for r in sorted(reservas, key=lambda x: (x['fecha'], x['hora_inicio'])):
-        if r['usuario'] == usuario:
-            clave = r['clave_agrupacion']
-            if clave not in mis_reservas_agrupadas:
-                mis_reservas_agrupadas[clave] = {
-                    'fecha': r['fecha'],
-                    'cancha_id': r['cancha_id'],
-                    'cancha_nombre': r['cancha_nombre'],
-                    'cancha_tipo': r.get('cancha_tipo', 'N/A'),
-                    'cancha_condicion': r.get('cancha_condicion', 'N/A'),
-                    'monto': 0,
-                    'bloques': [],
-                    'id': r['id'],
-                    'clave_agrupacion': clave,
-                    'hora_inicio': r['hora_inicio'],
-                    'hora_fin': ''
-                }
-            mis_reservas_agrupadas[clave]['bloques'].append(r)
-            mis_reservas_agrupadas[clave]['monto'] += r['cancha_monto']
-            mis_reservas_agrupadas[clave]['hora_fin'] = r['hora_fin']
-    
-    mis_reservas_list = sorted(list(mis_reservas_agrupadas.values()), 
-                               key=lambda x: (x['fecha'], x['hora_inicio']))
-
-    return render_template('mis_turnos.html', mis_turnos=mis_reservas_list)
-
-@app.route('/cancelar_turno/<int:reserva_id>')
-def cancelar_turno(reserva_id):
-    if 'rol' not in session or session['rol'] != 'usuario':
-        flash('Debes iniciar sesión como usuario para cancelar un turno.', 'error')
-        return redirect(url_for('iniciar_sesion_usuario'))
-    
-    usuario = session['nombre_usuario']
-    reservas = cargar_datos_json(RESERVAS_FILE)
-    
-    # Buscar el primer bloque de la reserva a cancelar
-    reserva_a_cancelar = next((r for r in reservas if r['id'] == reserva_id and r['usuario'] == usuario), None)
-    
-    if reserva_a_cancelar:
-        clave_agrupacion = reserva_a_cancelar['clave_agrupacion']
-        
-        # Encontrar y eliminar todos los bloques con la misma clave de agrupación
-        reservas_a_eliminar = [r for r in reservas if r['clave_agrupacion'] == clave_agrupacion]
-        
-        # Guardar en el archivo de canceladas
-        reservas_canceladas = cargar_datos_json(RESERVAS_CANCELADAS_FILE)
-        reservas_canceladas.extend(reservas_a_eliminar)
-        guardar_datos_json(RESERVAS_CANCELADAS_FILE, reservas_canceladas)
-        
-        # Crear una nueva lista de reservas sin las eliminadas
-        reservas_filtradas = [r for r in reservas if r['clave_agrupacion'] != clave_agrupacion]
-        guardar_datos_json(RESERVAS_FILE, reservas_filtradas)
-        
-        flash('Turno cancelado exitosamente.', 'success')
-    else:
-        flash('No se pudo encontrar o cancelar el turno.', 'error')
-        
-    return redirect(url_for('mis_turnos'))
-
-# --- RUTAS PARA LA GESTIÓN DE CANCHAS (ADMIN) ---
-
 @app.route('/gestionar_canchas')
 def gestionar_canchas():
+    """
+    RUTA: Ver lista de canchas (Admin).
+    Protegida por 'verificar_admin()'.
+    Muestra todas las canchas registradas en la DB.
+    """
     error_redirect = verificar_admin()
     if error_redirect: return error_redirect
     
-    canchas = cargar_datos_json(CANCHAS_FILE)
+    canchas = Cancha.query.all()
     return render_template('gestionar_canchas.html', canchas=canchas)
 
 @app.route('/agregar_cancha', methods=['GET', 'POST'])
 def agregar_cancha():
+    """
+    RUTA: Añadir una nueva cancha (Admin).
+    Protegida por 'verificar_admin()'.
+    GET: Muestra el formulario para agregar cancha.
+    POST: Procesa el formulario, valida y crea la cancha en la DB.
+    """
     error_redirect = verificar_admin()
     if error_redirect: return error_redirect
     
@@ -515,9 +378,9 @@ def agregar_cancha():
         condicion = request.form['condicion']
         monto_str = request.form['monto']
         
-        canchas = cargar_datos_json(CANCHAS_FILE)
-        
-        if any(c.get('nombre') == nombre for c in canchas):
+        # Validación: Evitar canchas duplicadas por nombre
+        cancha_existente = Cancha.query.filter_by(nombre=nombre).first()
+        if cancha_existente:
             flash('Ya existe una cancha con ese nombre.', 'error')
             return redirect(url_for('agregar_cancha'))
             
@@ -527,15 +390,13 @@ def agregar_cancha():
             flash('El monto debe ser un número válido.', 'error')
             return redirect(url_for('agregar_cancha'))
             
-        max_id = max([c['id'] for c in canchas]) if canchas else 0
-        canchas.append({
-            'id': max_id + 1,
-            'nombre': nombre,
-            'tipo': tipo,
-            'condicion': condicion,
-            'monto': monto
-        })
-        guardar_datos_json(CANCHAS_FILE, canchas)
+        # Creación de la nueva cancha
+        nueva_cancha = Cancha(
+            nombre=nombre, tipo=tipo, condicion=condicion, monto=monto
+        )
+        db.session.add(nueva_cancha)
+        db.session.commit()
+        
         flash('Cancha agregada exitosamente.', 'success')
         return redirect(url_for('gestionar_canchas'))
     
@@ -543,23 +404,30 @@ def agregar_cancha():
 
 @app.route('/editar_cancha/<int:cancha_id>', methods=['GET', 'POST'])
 def editar_cancha(cancha_id):
+    """
+    RUTA: Editar una cancha existente (Admin).
+    Protegida por 'verificar_admin()'.
+    GET: Muestra el formulario con los datos actuales de la cancha.
+    POST: Procesa el formulario, valida y actualiza la cancha en la DB.
+    """
     error_redirect = verificar_admin()
     if error_redirect: return error_redirect
     
-    canchas = cargar_datos_json(CANCHAS_FILE)
-    cancha_a_editar = next((c for c in canchas if c.get('id') == cancha_id), None)
+    # Busca la cancha en la DB o devuelve 404 si no existe
+    cancha_a_editar = Cancha.query.get_or_404(cancha_id)
     
-    if not cancha_a_editar:
-        flash('Cancha no encontrada.', 'error')
-        return redirect(url_for('gestionar_canchas'))
-        
     if request.method == 'POST':
         nuevo_nombre = request.form['nombre']
         nuevo_tipo = request.form['tipo']
         nueva_condicion = request.form['condicion']
         nuevo_monto_str = request.form['monto']
 
-        if any(c.get('nombre') == nuevo_nombre for c in canchas if c.get('id') != cancha_id):
+        # Validación: Asegurar que el nuevo nombre no esté en uso por OTRA cancha
+        cancha_existente = Cancha.query.filter(
+            Cancha.nombre == nuevo_nombre,
+            Cancha.id != cancha_id # Excluir la cancha actual de la búsqueda
+        ).first()
+        if cancha_existente:
             flash('Ya existe otra cancha con ese nombre.', 'error')
             return redirect(url_for('editar_cancha', cancha_id=cancha_id))
             
@@ -569,280 +437,235 @@ def editar_cancha(cancha_id):
             flash('El monto debe ser un número válido.', 'error')
             return redirect(url_for('editar_cancha', cancha_id=cancha_id))
 
-        cancha_a_editar['nombre'] = nuevo_nombre
-        cancha_a_editar['tipo'] = nuevo_tipo
-        cancha_a_editar['condicion'] = nueva_condicion
-        cancha_a_editar['monto'] = nuevo_monto
+        # Actualización de datos
+        cancha_a_editar.nombre = nuevo_nombre
+        cancha_a_editar.tipo = nuevo_tipo
+        cancha_a_editar.condicion = nueva_condicion
+        cancha_a_editar.monto = nuevo_monto
         
-        guardar_datos_json(CANCHAS_FILE, canchas)
+        db.session.commit()
         flash('Cancha actualizada exitosamente.', 'success')
         return redirect(url_for('gestionar_canchas'))
     
+    # Muestra el formulario con los datos precargados
     return render_template('editar_cancha.html', cancha=cancha_a_editar)
 
 @app.route('/eliminar_cancha/<int:cancha_id>')
 def eliminar_cancha(cancha_id):
+    """
+    RUTA: Eliminar una cancha (Admin).
+    Protegida por 'verificar_admin()'.
+    Valida que la cancha no tenga reservas asociadas antes de eliminar.
+    """
     error_redirect = verificar_admin()
     if error_redirect: return error_redirect
     
-    canchas = cargar_datos_json(CANCHAS_FILE)
-    cancha_a_eliminar = next((c for c in canchas if c.get('id') == cancha_id), None)
+    cancha_a_eliminar = Cancha.query.get_or_404(cancha_id)
     
-    if cancha_a_eliminar:
-        canchas.remove(cancha_a_eliminar)
-        guardar_datos_json(CANCHAS_FILE, canchas)
+    try:
+        # Validación de integridad: No eliminar canchas con historial de reservas
+        reservas_asociadas = Reserva.query.filter_by(cancha_id=cancha_id).first()
+        if reservas_asociadas:
+            flash('Error: No se puede eliminar la cancha porque tiene reservas asociadas.', 'error')
+            return redirect(url_for('gestionar_canchas'))
+
+        # Si no hay reservas, se elimina
+        db.session.delete(cancha_a_eliminar)
+        db.session.commit()
         flash('Cancha eliminada exitosamente.', 'success')
-    else:
-        flash('Cancha no encontrada.', 'error')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar la cancha: {e}', 'error')
         
     return redirect(url_for('gestionar_canchas'))
 
-# --- RUTAS MEJORADAS PARA EL ADMINISTRADOR ---
-
 @app.route('/ver_turnos_administrador')
 def ver_turnos_administrador():
+    """
+    RUTA: Ver todos los turnos activos (Admin).
+    Protegida por 'verificar_admin()'.
+    Muestra un listado de todas las reservas activas, agrupadas por día.
+    """
     try:
-        # Verificar sesión admin
-        if 'rol' not in session or session['rol'] != 'administrador':
-            flash('Acceso no autorizado', 'error')
-            return redirect(url_for('iniciar_sesion_administrador'))
+        error_redirect = verificar_admin()
+        if error_redirect: return error_redirect
 
-        # Cargar reservas con manejo de errores
-        reservas = cargar_datos_json(RESERVAS_FILE)
-        if not isinstance(reservas, list):
-            reservas = []
-            print("Advertencia: Las reservas no son una lista válida")
+        # Consulta que une Reservas, Usuarios y Canchas para obtener todos los datos
+        reservas_db = db.session.query(Reserva, Usuario, Cancha).join(Usuario).join(Cancha).filter(
+            Reserva.estado == 'activa'
+        ).order_by(Reserva.fecha.desc(), Reserva.hora_inicio.desc()).all()
 
-        # Agrupar por clave_agrupacion
-        grupos = defaultdict(list)
-        for reserva in reservas:
-            try:
-                clave = reserva['clave_agrupacion']
-                grupos[clave].append(reserva)
-            except KeyError:
-                print(f"Reserva sin clave_agrupacion: {reserva.get('id')}")
-                continue
-
-        # Procesar cada grupo de reservas (2 bloques de 30 min)
-        turnos_procesados = []
-        for clave, bloques in grupos.items():
-            try:
-                bloques_ordenados = sorted(bloques, key=lambda x: x['hora_inicio'])
-                
-                # Validar que sean exactamente 2 bloques consecutivos
-                if len(bloques_ordenados) == 2:
-                    primer_bloque = bloques_ordenados[0]
-                    segundo_bloque = bloques_ordenados[1]
-                    
-                    # Verificar que sean consecutivos
-                    hora_fin_primer = datetime.strptime(primer_bloque['hora_fin'], '%H:%M')
-                    hora_inicio_segundo = datetime.strptime(segundo_bloque['hora_inicio'], '%H:%M')
-                    
-                    if hora_fin_primer == hora_inicio_segundo:
-                        turno = {
-                            'id': primer_bloque['id'],
-                            'fecha': primer_bloque['fecha'],
-                            'hora_inicio': primer_bloque['hora_inicio'],
-                            'hora_fin': segundo_bloque['hora_fin'],
-                            'cancha_nombre': primer_bloque['cancha_nombre'],
-                            'usuario': primer_bloque['usuario'],
-                            'monto_total': primer_bloque['cancha_monto'] + segundo_bloque['cancha_monto'],
-                            'clave_agrupacion': clave
-                        }
-                        turnos_procesados.append(turno)
-                    else:
-                        print(f"Bloques no consecutivos en reserva {clave}")
-                else:
-                    print(f"Grupo incompleto en reserva {clave} - Bloques: {len(bloques_ordenados)}")
-            
-            except Exception as e:
-                print(f"Error procesando grupo {clave}: {str(e)}")
-                continue
-
-        # Ordenar por fecha y hora
-        turnos_procesados.sort(key=lambda x: (x['fecha'], x['hora_inicio']))
-
-        # Agrupar por fecha para el template
+        # Agrupar por fecha usando un defaultdict para el template
         reservas_por_dia = defaultdict(list)
-        for turno in turnos_procesados:
-            reservas_por_dia[turno['fecha']].append(turno)
+        for reserva, usuario, cancha in reservas_db:
+            turno = {
+                'id': reserva.id,
+                'fecha': reserva.fecha,
+                'hora_inicio': reserva.hora_inicio,
+                'hora_fin': reserva.hora_fin,
+                'cancha_nombre': cancha.nombre,
+                'usuario': usuario.nombre_usuario,
+                'monto_total': reserva.monto
+            }
+            reservas_por_dia[reserva.fecha].append(turno)
 
+        # Ordenar los grupos de días (el más reciente primero)
         return render_template('ver_turnos_administrador.html',
                            reservas_por_dia=sorted(reservas_por_dia.items(), reverse=True))
 
     except Exception as e:
-        print(f"Error crítico en ver_turnos_administrador: {str(e)}")
         flash('Error interno al mostrar los turnos', 'error')
         return render_template('ver_turnos_administrador.html', reservas_por_dia=[])
 
 @app.route('/cancelar_turno_admin/<int:reserva_id>')
 def cancelar_turno_admin(reserva_id):
+    """
+    RUTA: Cancelar un turno desde el panel de Admin.
+    Protegida por 'verificar_admin()'.
+    Cambia el estado de una reserva de 'activa' a 'cancelada'.
+    """
     try:
-        if 'rol' not in session or session['rol'] != 'administrador':
-            flash('Acceso no autorizado', 'error')
-            return redirect(url_for('iniciar_sesion_administrador'))
+        error_redirect = verificar_admin()
+        if error_redirect: return error_redirect
 
-        # Cargar datos
-        reservas = cargar_datos_json(RESERVAS_FILE) or []
-        reservas_canceladas = cargar_datos_json(RESERVAS_CANCELADAS_FILE) or []
-
-        # Encontrar la reserva específica
-        reserva = next((r for r in reservas if r['id'] == reserva_id), None)
-        if not reserva:
-            flash('Turno no encontrado', 'error')
-            return redirect(url_for('ver_turnos_administrador'))
-
-        # Mover todos los bloques con la misma clave_agrupacion
-        clave = reserva['clave_agrupacion']
-        reservas_a_cancelar = [r for r in reservas if r['clave_agrupacion'] == clave]
+        # Buscar la reserva activa
+        reserva_a_cancelar = Reserva.query.filter_by(id=reserva_id, estado='activa').first()
         
-        if not reservas_a_cancelar:
-            flash('No se encontraron bloques para cancelar', 'error')
+        if not reserva_a_cancelar:
+            flash('Turno no encontrado o ya estaba cancelado', 'error')
             return redirect(url_for('ver_turnos_administrador'))
 
-        # Actualizar listas
-        nuevas_reservas = [r for r in reservas if r['clave_agrupacion'] != clave]
-        reservas_canceladas.extend(reservas_a_cancelar)
-
-        # Guardar cambios
-        guardar_datos_json(RESERVAS_FILE, nuevas_reservas)
-        guardar_datos_json(RESERVAS_CANCELADAS_FILE, reservas_canceladas)
+        # Cambiar estado
+        reserva_a_cancelar.estado = 'cancelada'
+        db.session.commit()
 
         flash(f'Turno cancelado exitosamente (ID: {reserva_id})', 'success')
         return redirect(url_for('ver_turnos_administrador'))
 
     except Exception as e:
-        print(f"Error al cancelar turno: {str(e)}")
+        db.session.rollback()
         flash('Error interno al cancelar el turno', 'error')
         return redirect(url_for('ver_turnos_administrador'))
 
 @app.route('/gestionar_usuarios')
 def gestionar_usuarios():
+    """
+    RUTA: Ver lista de usuarios (Admin).
+    Protegida por 'verificar_admin()'.
+    Muestra todos los usuarios (clientes) y administradores registrados.
+    """
     error_redirect = verificar_admin()
     if error_redirect: return error_redirect
     
-    usuarios_normales = cargar_datos_json(USUARIOS_NORMAL_FILE)
-    administradores = cargar_datos_json(USUARIOS_ADMIN_FILE)
+    usuarios_normales = Usuario.query.all()
+    administradores = Administrador.query.all()
 
     return render_template('gestionar_usuarios.html', usuarios=usuarios_normales, administradores=administradores)
 
 @app.route('/ver_turnos_cancelados_administrador')
 def ver_turnos_cancelados_administrador():
+    """
+    RUTA: Ver historial de turnos cancelados (Admin).
+    Protegida por 'verificar_admin()'.
+    Muestra un listado de todas las reservas con estado 'cancelada'.
+    """
     try:
-        # Verificar sesión de administrador
-        if 'rol' not in session or session['rol'] != 'administrador':
-            flash('Acceso denegado', 'error')
-            return redirect(url_for('iniciar_sesion_administrador'))
+        error_redirect = verificar_admin()
+        if error_redirect: return error_redirect
 
-        # Cargar reservas canceladas con manejo robusto
-        try:
-            reservas_canceladas = cargar_datos_json(RESERVAS_CANCELADAS_FILE)
-            if not isinstance(reservas_canceladas, list):
-                reservas_canceladas = []
-        except Exception as e:
-            print(f"Error al cargar reservas canceladas: {str(e)}")
-            reservas_canceladas = []
+        # Consulta similar a ver_turnos, pero filtrando por 'cancelada'
+        reservas_db = db.session.query(Reserva, Usuario, Cancha).join(Usuario).join(Cancha).filter(
+            Reserva.estado == 'cancelada'
+        ).order_by(Reserva.fecha.desc(), Reserva.hora_inicio.desc()).all()
 
-        # Agrupar por fecha
         reservas_por_dia = defaultdict(list)
+        for reserva, usuario, cancha in reservas_db:
+            turno = {
+                'fecha': reserva.fecha,
+                'hora_inicio': reserva.hora_inicio,
+                'hora_fin': reserva.hora_fin,
+                'cancha_nombre': cancha.nombre,
+                'usuario': usuario.nombre_usuario,
+                'monto_total': reserva.monto
+            }
+            reservas_por_dia[reserva.fecha].append(turno)
         
-        # Primero agrupar por clave_agrupacion para juntar los bloques de 30min
-        grupos = defaultdict(list)
-        for reserva in reservas_canceladas:
-            grupos[reserva['clave_agrupacion']].append(reserva)
+        # Ordenar días (más reciente primero)
+        reservas_por_dia_ordenadas = dict(sorted(reservas_por_dia.items(), reverse=True))
         
-        # Procesar cada grupo de reservas
-        for clave, bloques in grupos.items():
-            bloques_ordenados = sorted(bloques, key=lambda x: x['hora_inicio'])
-            
-            if len(bloques_ordenados) >= 1:  # Aunque sea 1 bloque
-                primer_bloque = bloques_ordenados[0]
-                fecha = primer_bloque['fecha']
-                
-                turno = {
-                    'fecha': fecha,
-                    'hora_inicio': primer_bloque['hora_inicio'],
-                    'hora_fin': bloques_ordenados[-1]['hora_fin'],
-                    'cancha_nombre': primer_bloque.get('cancha_nombre', 'Cancha Desconocida'),
-                    'usuario': primer_bloque.get('usuario', 'Anónimo'),
-                    'monto_total': sum(b.get('cancha_monto', 0) for b in bloques_ordenados),
-                    'fecha_cancelacion': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                    'id': primer_bloque['id']
-                }
-                
-                reservas_por_dia[fecha].append(turno)
-
-        # Ordenar las fechas
-        reservas_por_dia = dict(sorted(reservas_por_dia.items(), reverse=True))
-        
-        # Ordenar los turnos dentro de cada fecha
-        for fecha in reservas_por_dia:
-            reservas_por_dia[fecha].sort(key=lambda x: x['hora_inicio'])
+        # Ordenar horas dentro de cada día (más temprano primero)
+        for fecha in reservas_por_dia_ordenadas:
+            reservas_por_dia_ordenadas[fecha].sort(key=lambda x: x['hora_inicio'])
 
         return render_template('ver_turnos_cancelados_administrador.html',
-                           reservas_por_dia=reservas_por_dia.items())
+                           reservas_por_dia=reservas_por_dia_ordenadas.items())
 
     except Exception as e:
-        print(f"Error en ver_turnos_cancelados: {str(e)}")
         flash('Error al cargar turnos cancelados', 'error')
         return render_template('ver_turnos_cancelados_administrador.html',
                            reservas_por_dia=[])
     
 @app.route('/informe_financiero_administrador')
 def informe_financiero_administrador():
+    """
+    RUTA: Informe financiero detallado (Admin).
+    Protegida por 'verificar_admin()'.
+    Calcula ingresos agrupados por día, semana, mes, etc., de forma optimizada.
+    """
     try:
-        # Verificar sesión de administrador
-        if 'rol' not in session or session['rol'] != 'administrador':
-            flash('Acceso denegado', 'error')
-            return redirect(url_for('iniciar_sesion_administrador'))
+        error_redirect = verificar_admin()
+        if error_redirect: return error_redirect
 
-        # Cargar solo reservas activas
-        reservas = cargar_datos_json(RESERVAS_FILE) or []
+        # OPTIMIZACIÓN: En lugar de traer CADA reserva, traemos el total por día
+        # desde SQL. Esto reduce drásticamente el uso de memoria si hay miles de reservas.
+        datos_diarios_db = db.session.query(
+            Reserva.fecha, func.sum(Reserva.monto)
+        ).filter(Reserva.estado == 'activa').group_by(Reserva.fecha).all()
         
-        # Inicializar estructuras para los informes
+        hoy = datetime.now()
+        mes_actual = hoy.month
+        anio_actual = hoy.year
+
+        # Diccionarios para acumular los ingresos
         ingresos = {
-            'diarios': defaultdict(float),
-            'semanales': defaultdict(float),
-            'mensuales': defaultdict(float),
-            'trimestrales': defaultdict(float),
-            'semestrales': defaultdict(float),
-            'anuales': defaultdict(float)
+            'diarios': defaultdict(float), 'semanales': defaultdict(float),
+            'mensuales': defaultdict(float), 'trimestrales': defaultdict(float),
+            'semestrales': defaultdict(float), 'anuales': defaultdict(float)
         }
 
-        # Procesar cada reserva
-        for reserva in reservas:
+        # Procesamos los resultados PRE-AGRUPADOS por SQL
+        for fecha_str, monto_total in datos_diarios_db:
             try:
-                fecha = datetime.strptime(reserva['fecha'], '%Y-%m-%d')
-                monto = float(reserva.get('cancha_monto', 0))
+                monto = float(monto_total)
+                fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
                 
-                # Agrupar por clave_agrupacion para evitar duplicados
-                if reserva['hora_inicio'].endswith('00'):  # Solo procesamos el primer bloque de cada hora
-                    # Ingresos diarios
-                    ingresos['diarios'][reserva['fecha']] += monto * 2  # Sumamos los 2 bloques
-                    
-                    # Ingresos semanales
-                    semana = f"{fecha.year}-Semana {fecha.isocalendar()[1]}"
-                    ingresos['semanales'][semana] += monto * 2
-                    
-                    # Ingresos mensuales
-                    mes = f"{fecha.year}-{fecha.month:02d}"
-                    ingresos['mensuales'][mes] += monto * 2
-                    
-                    # Ingresos trimestrales
-                    trimestre = f"{fecha.year}-T{(fecha.month-1)//3 + 1}"
-                    ingresos['trimestrales'][trimestre] += monto * 2
-                    
-                    # Ingresos semestrales
-                    semestre = f"{fecha.year}-S{1 if fecha.month <= 6 else 2}"
-                    ingresos['semestrales'][semestre] += monto * 2
-                    
-                    # Ingresos anuales
-                    ingresos['anuales'][str(fecha.year)] += monto * 2
-            except (ValueError, KeyError) as e:
-                print(f"Error procesando reserva {reserva.get('id')}: {str(e)}")
+                # Reporte diario (solo del mes actual para simplicidad)
+                if fecha.month == mes_actual and fecha.year == anio_actual:
+                    ingresos['diarios'][fecha_str] += monto
+                
+                # Agrupación por semana (ISO)
+                semana = f"{fecha.year}-Semana {fecha.isocalendar()[1]:02d}"
+                ingresos['semanales'][semana] += monto
+                
+                # Agrupación por mes
+                mes = f"{fecha.year}-{fecha.month:02d}"
+                ingresos['mensuales'][mes] += monto
+                
+                # Agrupación por trimestre
+                trimestre = f"{fecha.year}-T{(fecha.month-1)//3 + 1}"
+                ingresos['trimestrales'][trimestre] += monto
+                
+                # Agrupación por semestre
+                semestre = f"{fecha.year}-S{1 if fecha.month <= 6 else 2}"
+                ingresos['semestrales'][semestre] += monto
+                
+                # Agrupación por año
+                ingresos['anuales'][str(fecha.year)] += monto
+            except (ValueError, KeyError):
+                # Ignora fechas mal formateadas si existieran
                 continue
 
-        # Convertir a listas ordenadas
+        # Prepara los reportes para el template (ordenados)
         reportes = {
             'diario': sorted(ingresos['diarios'].items(), reverse=True),
             'semanal': sorted(ingresos['semanales'].items(), reverse=True),
@@ -852,27 +675,352 @@ def informe_financiero_administrador():
             'anual': sorted(ingresos['anuales'].items(), reverse=True)
         }
 
-        return render_template('informe_financiero_administrador.html', 
-                            reportes=reportes)
+        return render_template('informe_financiero_administrador.html', reportes=reportes)
 
     except Exception as e:
-        print(f"Error en informe financiero: {str(e)}")
         flash('Error al generar el informe', 'error')
-        return render_template('informe_financiero_administrador.html', 
-                            reportes={})
+        return render_template('informe_financiero_administrador.html', reportes={})
+
+@app.route('/panel_reportes')
+def panel_reportes():
+    """
+    RUTA: Panel de estadísticas y reportes de negocio (Admin).
+    Protegida por 'verificar_admin()'.
+    Genera múltiples reportes avanzados (Top 5, demanda, etc.).
+    """
+    error_redirect = verificar_admin()
+    if error_redirect: return error_redirect
+
+    try:
+        # Reporte 1: Top 5 Usuarios con más reservas activas
+        top_usuarios_reservas = db.session.query(
+            Usuario.nombre_usuario, func.count(Reserva.id).label('total_reservas')
+        ).join(Reserva).filter(Reserva.estado == 'activa').group_by(Usuario.id).order_by(
+            func.count(Reserva.id).desc()
+        ).limit(5).all()
+
+        # Reporte 2: Top 5 Usuarios con más cancelaciones
+        top_usuarios_cancelan = db.session.query(
+            Usuario.nombre_usuario, func.count(Reserva.id).label('total_canceladas')
+        ).join(Reserva).filter(Reserva.estado == 'cancelada').group_by(Usuario.id).order_by(
+            func.count(Reserva.id).desc()
+        ).limit(5).all()
+
+        # Reporte 3: Canchas más reservadas (ranking)
+        top_canchas = db.session.query(
+            Cancha.nombre, func.count(Reserva.id).label('total_reservas')
+        ).join(Reserva).filter(Reserva.estado == 'activa').group_by(Cancha.id).order_by(
+            func.count(Reserva.id).desc()
+        ).all()
+
+        # Reporte 4: Demanda por franja horaria
+        query_horarios = db.session.query(
+            Reserva.hora_inicio, func.count(Reserva.id).label('total')
+        ).filter(Reserva.estado == 'activa').group_by(Reserva.hora_inicio).order_by(
+            func.count(Reserva.id).desc()
+        ).all()
+        
+        # Rellenar horarios vacíos (los que tienen 0 reservas)
+        contador_horarios = {h: c for h, c in query_horarios}
+        for hora in range(HORA_APERTURA, HORA_CIERRE):
+            hora_str = f"{hora:02d}:00"
+            if hora_str not in contador_horarios:
+                contador_horarios[hora_str] = 0
+        
+        horarios_demanda = sorted(contador_horarios.items(), key=lambda item: item[1], reverse=True)
+        horarios_mas_demanda = horarios_demanda[:5]
+        horarios_menos_demanda = horarios_demanda[::-1][:5]
+
+        # Reporte 5: Días de la semana con más reservas
+        mapa_dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        lista_dias_semana = []
+        
+        # Traer solo las fechas (optimizado)
+        reservas_fechas = db.session.query(Reserva.fecha).filter_by(estado='activa').all()
+        
+        for r in reservas_fechas:
+            try:
+                fecha_dt = datetime.strptime(r.fecha, '%Y-%m-%d')
+                dia_idx = fecha_dt.weekday() # Lunes=0, Domingo=6
+                lista_dias_semana.append(mapa_dias[dia_idx])
+            except (ValueError, KeyError):
+                continue
+        
+        # Usar Counter para contar la frecuencia de cada día
+        top_dias_semana = Counter(lista_dias_semana).most_common()
+
+        # Renderizar la plantilla con todos los reportes
+        return render_template('panel_reportes.html',
+                               top_usuarios_reservas=top_usuarios_reservas,
+                               top_usuarios_cancelan=top_usuarios_cancelan,
+                               top_canchas=top_canchas,
+                               horarios_mas_demanda=horarios_mas_demanda,
+                               horarios_menos_demanda=horarios_menos_demanda,
+                               top_dias_semana=top_dias_semana
+                               )
+    except Exception as e:
+        flash(f'Error al generar reportes: {e}', 'error')
+        return redirect(url_for('panel_administrador'))
+
+
+# --- Rutas del Panel de Usuario ---
+
+@app.route('/panel_usuario')
+def panel_usuario():
+    """
+    RUTA: Dashboard principal del Usuario (Cliente).
+    Protegido por sesión de 'usuario'.
+    Muestra los próximos turnos del usuario y un resumen de su actividad.
+    """
+    # 1. Verificar permisos
+    if 'rol' not in session or session['rol'] != 'usuario' or 'user_id' not in session:
+        flash('Acceso denegado. Por favor, inicia sesión como usuario.', 'error')
+        return redirect(url_for('iniciar_sesion_usuario'))
+    
+    usuario_id = session['user_id']
+    hoy_str = datetime.now().strftime('%Y-%m-%d')
+    ahora_str = datetime.now().strftime('%H:%M')
+
+    # 2. Obtener próximos turnos (Optimizado)
+    # Filtramos en la DB por fecha >= hoy para no traer historial innecesario
+    proximos_turnos_db = Reserva.query.filter(
+        Reserva.usuario_id == usuario_id,
+        Reserva.estado == 'activa',
+        Reserva.fecha >= hoy_str 
+    ).order_by(Reserva.fecha, Reserva.hora_inicio).all()
+    
+    proximos_turnos_con_cancha = []
+    for turno in proximos_turnos_db:
+        # Si el turno es hoy, verificamos que la hora no haya pasado
+        if turno.fecha == hoy_str and turno.hora_inicio < ahora_str:
+            continue # Omitir este turno, ya pasó
+
+        # 'turno.cancha' funciona gracias al 'backref' de SQLAlchemy
+        turno_data = {
+            'id': turno.id,
+            'fecha': turno.fecha,
+            'hora_inicio': turno.hora_inicio,
+            'hora_fin': turno.hora_fin,
+            'monto': turno.monto,
+            'cancha_nombre': turno.cancha.nombre,
+            'cancha_tipo': turno.cancha.tipo,
+            'cancha_condicion': turno.cancha.condicion
+        }
+        proximos_turnos_con_cancha.append(turno_data)
+    
+    # 3. Contar total de turnos activos para estadística
+    total_turnos = Reserva.query.filter_by(usuario_id=usuario_id, estado='activa').count()
+
+    # 4. Renderizar plantilla
+    return render_template('panel_usuario.html', 
+                         nombre_usuario=session['nombre_usuario'], 
+                         proximos_turnos=proximos_turnos_con_cancha,
+                         total_turnos=total_turnos)
+
+@app.route('/reservar_turno', methods=['GET', 'POST'])
+def reservar_turno():
+    """
+    RUTA: Reservar un turno (Usuario).
+    Protegido por sesión de 'usuario'.
+    GET: Muestra el formulario de reserva (calendario y canchas).
+    POST: Procesa la reserva, validando la disponibilidad.
+    """
+    if 'rol' not in session or session['rol'] != 'usuario' or 'user_id' not in session:
+        flash('Debes iniciar sesión como usuario para reservar un turno.', 'error')
+        return redirect(url_for('iniciar_sesion_usuario'))
+    
+    if request.method == 'POST':
+        try:
+            # 1. Recoger datos del formulario
+            fecha_str = request.form['fecha']
+            hora_inicio_str = request.form['hora_inicio']
+            cancha_id = int(request.form['cancha'])
+            usuario_id = session['user_id']
+            
+            # 2. Obtener datos de la cancha (para el precio)
+            cancha_seleccionada = Cancha.query.get(cancha_id)
+            if not cancha_seleccionada:
+                flash('Cancha no encontrada.', 'error')
+                return redirect(url_for('reservar_turno'))
+
+            # 3. Calcular hora de fin (asumimos 1 hora)
+            hora_inicio_dt = datetime.strptime(hora_inicio_str, '%H:%M')
+            hora_fin_dt = hora_inicio_dt + timedelta(hours=1)
+            hora_fin_str = hora_fin_dt.strftime('%H:%M')
+
+            # 4. Validación CRÍTICA: Verificar que el turno no esté ocupado
+            reserva_existente = Reserva.query.filter_by(
+                fecha=fecha_str,
+                hora_inicio=hora_inicio_str,
+                cancha_id=cancha_id,
+                estado='activa' # Solo importa si está activa
+            ).first()
+            
+            if reserva_existente:
+                flash('Lo sentimos, el turno seleccionado ya ha sido reservado.', 'error')
+                return redirect(url_for('reservar_turno'))
+            
+            # 5. Crear la reserva en la DB
+            nueva_reserva = Reserva(
+                usuario_id=usuario_id,
+                cancha_id=cancha_id,
+                fecha=fecha_str,
+                hora_inicio=hora_inicio_str,
+                hora_fin=hora_fin_str,
+                monto=cancha_seleccionada.monto,
+                estado='activa'
+            )
+            
+            db.session.add(nueva_reserva)
+            db.session.commit()
+            
+            flash('Turno reservado exitosamente.', 'success')
+            return redirect(url_for('mis_turnos'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error en la reserva. Por favor, revisa los datos: {e}', 'error')
+            return redirect(url_for('reservar_turno'))
+
+    # Método GET: Cargar canchas para el formulario
+    canchas = Cancha.query.all()
+    return render_template('reservar_turno.html', canchas=canchas)
+
+@app.route('/mis_turnos')
+def mis_turnos():
+    """
+    RUTA: Ver historial de turnos (Usuario).
+    Protegido por sesión de 'usuario'.
+    Muestra TODOS los turnos del usuario (activos y cancelados), ordenados.
+    """
+    if 'rol' not in session or session['rol'] != 'usuario' or 'user_id' not in session:
+        flash('Debes iniciar sesión como usuario para ver tus turnos.', 'error')
+        return redirect(url_for('iniciar_sesion_usuario'))
+
+    usuario_id = session['user_id']
+    
+    # Consulta que une Reservas y Canchas para el usuario logueado
+    mis_reservas_db = db.session.query(Reserva, Cancha).join(Cancha).filter(
+        Reserva.usuario_id == usuario_id
+    ).order_by(Reserva.fecha.desc(), Reserva.hora_inicio.desc()).all()
+
+    # Formatear los datos para el template
+    mis_reservas_list = []
+    for reserva, cancha in mis_reservas_db:
+        mis_reservas_list.append({
+            'id': reserva.id,
+            'fecha': reserva.fecha,
+            'hora_inicio': reserva.hora_inicio,
+            'hora_fin': reserva.hora_fin,
+            'monto': reserva.monto,
+            'estado': reserva.estado,
+            'cancha_nombre': cancha.nombre,
+            'cancha_tipo': cancha.tipo,
+            'cancha_condicion': cancha.condicion
+        })
+
+    return render_template('mis_turnos.html', mis_turnos=mis_reservas_list)
+
+@app.route('/cancelar_turno/<int:reserva_id>')
+def cancelar_turno(reserva_id):
+    """
+    RUTA: Cancelar un turno (Usuario).
+    Protegido por sesión de 'usuario'.
+    Verifica que el turno pertenezca al usuario y esté activo antes de cancelar.
+    """
+    if 'rol' not in session or session['rol'] != 'usuario' or 'user_id' not in session:
+        flash('Debes iniciar sesión como usuario para cancelar un turno.', 'error')
+        return redirect(url_for('iniciar_sesion_usuario'))
+    
+    usuario_id = session['user_id']
+    
+    # Buscar la reserva, asegurando que sea del usuario y esté activa
+    reserva_a_cancelar = Reserva.query.filter_by(
+        id=reserva_id,
+        usuario_id=usuario_id,
+        estado='activa' 
+    ).first()
+    
+    if reserva_a_cancelar:
+        try:
+            # Lógica de cancelación: solo se cambia el estado
+            reserva_a_cancelar.estado = 'cancelada'
+            db.session.commit()
+            flash('Turno cancelado exitosamente.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al cancelar el turno: {e}', 'error')
+    else:
+        # Si no se encuentra, es porque no existe, ya estaba cancelada o no es del usuario
+        flash('No se pudo encontrar o cancelar el turno.', 'error')
+        
+    return redirect(url_for('mis_turnos'))
+
+# --- Rutas de API (para JavaScript/Frontend) ---
+
+@app.route('/api/turnos_disponibles/<fecha>')
+def api_turnos_disponibles(fecha):
+    """
+    API ENDPOINT: Obtener horarios disponibles para una fecha específica.
+    Usado por JavaScript en el formulario de reserva.
+    Devuelve un JSON con la info de las canchas y los horarios ocupados/libres.
+    """
+    try:
+        # Seguridad: Solo usuarios logueados pueden consultar la API
+        if 'rol' not in session or session['rol'] != 'usuario':
+            return jsonify({'error': 'No autorizado'}), 403
+
+        # 1. Obtener todas las canchas
+        canchas = Cancha.query.all()
+        
+        # 2. Obtener reservas activas para esa fecha
+        reservas_en_fecha = Reserva.query.filter_by(
+            fecha=fecha,
+            estado='activa'
+        ).all()
+
+        # 3. Crear un 'set' (conjunto) de horarios ocupados para búsqueda rápida
+        # Guardamos tuplas (id_cancha, hora_inicio)
+        horarios_ocupados = set()
+        for r in reservas_en_fecha:
+            horarios_ocupados.add( (r.cancha_id, r.hora_inicio) )
+
+        # 4. Preparar la respuesta JSON
+        canchas_json = [
+            {'id': c.id, 'nombre': c.nombre, 'tipo': c.tipo, 'condicion': c.condicion, 'monto': c.monto} 
+            for c in canchas
+        ]
+        
+        horarios_disponibles = {}
+        for cancha in canchas:
+            cancha_id = cancha.id
+            horarios_disponibles[cancha_id] = []
+            
+            # 5. Iterar sobre el rango de horas operativas (definido en constantes)
+            for hora in range(HORA_APERTURA, HORA_CIERRE):
+                hora_inicio = f"{hora:02d}:00"
+                hora_fin = f"{hora+1:02d}:00"
+                
+                # Si el turno (cancha, hora) NO está en el set de ocupados, está libre
+                if (cancha_id, hora_inicio) not in horarios_ocupados:
+                    horarios_disponibles[cancha_id].append({
+                        'hora_inicio': hora_inicio,
+                        'hora_fin': hora_fin
+                    })
+
+        # 6. Devolver la respuesta JSON
+        return jsonify({
+            'canchas': canchas_json,
+            'horarios_disponibles': horarios_disponibles
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error en api_turnos_disponibles: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 
 # --- Final de la aplicación ---
 if __name__ == '__main__':
-    os.makedirs(CARPETA_DATOS, exist_ok=True)
-    if not os.path.exists(USUARIOS_ADMIN_FILE):
-        guardar_datos_json(USUARIOS_ADMIN_FILE, [])
-    if not os.path.exists(USUARIOS_NORMAL_FILE):
-        guardar_datos_json(USUARIOS_NORMAL_FILE, [])
-    if not os.path.exists(RESERVAS_FILE):
-        guardar_datos_json(RESERVAS_FILE, [])
-    if not os.path.exists(CANCHAS_FILE):
-        guardar_datos_json(CANCHAS_FILE, [])
-    if not os.path.exists(RESERVAS_CANCELADAS_FILE):
-        guardar_datos_json(RESERVAS_CANCELADAS_FILE, [])
-    
-    app.run(debug=False, use_reloader=False)
+    # El modo debug se activa para desarrollo
+    # En producción, esto se gestiona con un servidor WSGI (Gunicorn, Waitress)
+    app.run(debug=True)

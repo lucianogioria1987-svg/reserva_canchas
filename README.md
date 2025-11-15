@@ -1,5 +1,4 @@
-# ⚽ Sistema de Reservas de Canchas
-
+Sistema de Gestión de Reservas de Canchas (Flask y MySQL)
 Este proyecto es una aplicación web integral para la gestión de reservas de canchas deportivas , construida con Flask y SQLAlchemy (MySQL). La aplicación soporta dos roles de usuario (Clientes y Administradores) con paneles y funcionalidades diferenciadas.
 
 El sistema va más allá de un simple CRUD y ofrece un módulo de inteligencia de negocio (BI) para el administrador, con informes estadísticos y financieros.
@@ -58,19 +57,35 @@ Horarios de Mayor y Menor Demanda (Horas pico).
 
 Días de la Semana con mayor afluencia.
 
----
+🛠️ Pila Tecnológica
+Backend: Python, Flask
 
-## 📂 Estructura del proyecto
+Base de datos: MySQL
 
+ORM: SQLAlchemy (con Flask-SQLAlchemy)
+
+Base de datos del controlador: PyMySQL
+
+Autenticación: Werkzeug (Hashing de contraseñas)
+
+Desarrollo frontend: HTML, CSS, JavaScript
+
+Plantillas: Jinja2
+
+⚙️ Instalación y Puesta en Marcha
+Para ejecutar este proyecto, necesitarás tener Python 3.xy una base de datos MySQL activa.
+
+1. Prerrequisitos
+Python 3.8+
+
+Un servidor MySQL (como XAMPP, WAMP o una instancia de Docker)
+
+Git (recomendado)
+
+🌳 Estructura del Proyecto
 RESERVA_CANCHAS/
-│── datos/                         # Archivos JSON que actúan como base de datos
-│   ├── administradores.json
-│   ├── canchas.json
-│   ├── reservas.json
-│   ├── reservas_canceladas.json
-│   └── usuarios.json
 │
-│── plantillas/                    # Vistas HTML para la aplicación (Flask/Jinja)
+├── plantillas/         # Vistas HTML (Jinja2)
 │   ├── agregar_cancha.html
 │   ├── crear_administrador.html
 │   ├── crear_usuario.html
@@ -83,39 +98,22 @@ RESERVA_CANCHAS/
 │   ├── inicio.html
 │   ├── mis_turnos.html
 │   ├── panel_administrador.html
+│   ├── panel_reportes.html
 │   ├── panel_usuario.html
 │   ├── reservar_turno.html
 │   ├── ver_turnos_administrador.html
 │   └── ver_turnos_cancelados_administrador.html
 │
-│── static/                        # Recursos estáticos (CSS, JS, imágenes)
+├── static/             # Recursos estáticos
 │   ├── css/
 │   │   └── estilos.css
 │   ├── img/
-│   │   ├── cancha1.jpg
-│   │   ├── cancha2.jpg
-│   │   ├── cancha3.jpg
-│   │   └── cancha4.jpg
+│   │   └── ... (imágenes)
 │   └── js/
-│       ├── reservar_turno.js
-│       └── script.js
+│       └── ... (scripts de frontend)
 │
-│── venv/                          # Entorno virtual de Python (ignorado por Git)
+├── venv/               # Entorno virtual de Python (ignorado por Git)
 │
-│── app.py                         # Archivo principal que arranca la aplicación Flask
-│── crear_usuarios.py              # Script auxiliar para cargar usuarios
-│── simular_reservas.py            # Script para pruebas de reservas
-│── .gitignore                     # Archivos y carpetas ignoradas en Git
-│── README.md                      # Documentación del proyecto
-
----
-
-## ⚙️ Requisitos
-
-- Python 3.8 o superior  
-- Flask 2.x  
-- Dependencias listadas en `requirements.txt`
-
-Instalar dependencias con:
-```bash
-pip install -r requirements.txt
+├── app.py              # Lógica principal de la aplicación Flask
+├── requirements.txt    # Lista de dependencias de Python
+└── README.md           # Este archivo

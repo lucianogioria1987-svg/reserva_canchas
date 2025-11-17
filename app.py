@@ -106,6 +106,20 @@ class Reserva(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False) 
     cancha_id = db.Column(db.Integer, db.ForeignKey('canchas.id'), nullable=False) 
 
+class Gasto(db.Model):
+    """
+    ¡ESTE ES EL MODELO QUE FALTABA!
+    Modelo de la tabla 'gastos'.
+    Almacena todos los egresos y gastos fijos/variables del negocio.
+    """
+    __tablename__ = 'gastos' 
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.String(10), nullable=False) # Formato YYYY-MM-DD
+    monto = db.Column(db.Float, nullable=False)
+    categoria = db.Column(db.String(100), nullable=False) # Ej: 'Servicios', 'Impuestos', 'Sueldos', 'Mantenimiento'
+    concepto = db.Column(db.String(255), nullable=False) # Ej: 'Pago Luz Enero', 'Alquiler Mes', 'Sueldo Empleado'
+    descripcion = db.Column(db.Text, nullable=True) # Opcional, para más detalles
+
 # --- FIN: Definición de Modelos ---
 
 
@@ -117,8 +131,6 @@ def verificar_admin():
     """
     Función helper de seguridad.
     Verifica si el usuario en la sesión actual es un administrador.
-    Si no lo es, flashea un error y redirige al login de admin.
-    Si la sesión es válida, retorna None.
     """
     # Verifica que el rol 'administrador' esté en la sesión
     if 'rol' not in session or session['rol'] != 'administrador':
@@ -230,6 +242,19 @@ def crear_usuario():
             return redirect(url_for('crear_usuario'))
     
     return render_template('crear_usuario.html')
+
+# --- INICIO: NUEVA RUTA PARA TORNEOS Y EVENTOS ---
+
+@app.route('/torneos-y-eventos')
+def torneos_y_eventos():
+    """
+    RUTA: Página pública para mostrar información de Torneos y Eventos.
+    """
+    # Por ahora solo renderiza la plantilla.
+    # En el futuro, podrías pasarle una lista de torneos desde la base de datos.
+    return render_template('torneos_y_eventos.html')
+
+# --- FIN: NUEVA RUTA ---
 
 @app.route('/iniciar_sesion_usuario', methods=['GET', 'POST'])
 def iniciar_sesion_usuario():
@@ -609,76 +634,95 @@ def ver_turnos_cancelados_administrador():
 def informe_financiero_administrador():
     """
     RUTA: Informe financiero detallado (Admin).
-    Protegida por 'verificar_admin()'.
-    Calcula ingresos agrupados por día, semana, mes, etc., de forma optimizada.
+    ¡VERSIÓN ACTUALIZADA!
+    Calcula Ingresos, Egresos y Balance Neto agrupados por período.
     """
     try:
         error_redirect = verificar_admin()
         if error_redirect: return error_redirect
 
-        # OPTIMIZACIÓN: En lugar de traer CADA reserva, traemos el total por día
-        # desde SQL. Esto reduce drásticamente el uso de memoria si hay miles de reservas.
-        datos_diarios_db = db.session.query(
-            Reserva.fecha, func.sum(Reserva.monto)
-        ).filter(Reserva.estado == 'activa').group_by(Reserva.fecha).all()
+        # --- 1. Contenedores de datos ---
+        # Usamos defaultdict para inicializar automáticamente los períodos que no existan
+        balance_diario = defaultdict(lambda: {'ingresos': 0.0, 'egresos': 0.0, 'balance': 0.0})
+        balance_semanal = defaultdict(lambda: {'ingresos': 0.0, 'egresos': 0.0, 'balance': 0.0})
+        balance_mensual = defaultdict(lambda: {'ingresos': 0.0, 'egresos': 0.0, 'balance': 0.0})
+        balance_trimestral = defaultdict(lambda: {'ingresos': 0.0, 'egresos': 0.0, 'balance': 0.0})
+        balance_anual = defaultdict(lambda: {'ingresos': 0.0, 'egresos': 0.0, 'balance': 0.0})
         
         hoy = datetime.now()
         mes_actual = hoy.month
         anio_actual = hoy.year
 
-        # Diccionarios para acumular los ingresos
-        ingresos = {
-            'diarios': defaultdict(float), 'semanales': defaultdict(float),
-            'mensuales': defaultdict(float), 'trimestrales': defaultdict(float),
-            'semestrales': defaultdict(float), 'anuales': defaultdict(float)
-        }
-
-        # Procesamos los resultados PRE-AGRUPADOS por SQL
-        for fecha_str, monto_total in datos_diarios_db:
+        # --- 2. Procesar INGRESOS (Reservas) ---
+        reservas_activas = Reserva.query.filter_by(estado='activa').all()
+        for r in reservas_activas:
             try:
-                monto = float(monto_total)
-                fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
+                monto = float(r.monto)
+                fecha = datetime.strptime(r.fecha, '%Y-%m-%d')
                 
-                # Reporte diario (solo del mes actual para simplicidad)
-                if fecha.month == mes_actual and fecha.year == anio_actual:
-                    ingresos['diarios'][fecha_str] += monto
-                
-                # Agrupación por semana (ISO)
-                semana = f"{fecha.year}-Semana {fecha.isocalendar()[1]:02d}"
-                ingresos['semanales'][semana] += monto
-                
-                # Agrupación por mes
+                # Definir períodos
+                fecha_str = r.fecha
+                semana = f"{fecha.year}-Sem {fecha.isocalendar()[1]:02d}"
                 mes = f"{fecha.year}-{fecha.month:02d}"
-                ingresos['mensuales'][mes] += monto
-                
-                # Agrupación por trimestre
                 trimestre = f"{fecha.year}-T{(fecha.month-1)//3 + 1}"
-                ingresos['trimestrales'][trimestre] += monto
-                
-                # Agrupación por semestre
-                semestre = f"{fecha.year}-S{1 if fecha.month <= 6 else 2}"
-                ingresos['semestrales'][semestre] += monto
-                
-                # Agrupación por año
-                ingresos['anuales'][str(fecha.year)] += monto
+                anio = str(fecha.year)
+
+                # Sumar a ingresos
+                if fecha.month == mes_actual and fecha.year == anio_actual:
+                    balance_diario[fecha_str]['ingresos'] += monto
+                balance_semanal[semana]['ingresos'] += monto
+                balance_mensual[mes]['ingresos'] += monto
+                balance_trimestral[trimestre]['ingresos'] += monto
+                balance_anual[anio]['ingresos'] += monto
             except (ValueError, KeyError):
-                # Ignora fechas mal formateadas si existieran
+                continue
+        
+        # --- 3. Procesar EGRESOS (Gastos) ---
+        todos_los_gastos = Gasto.query.all()
+        for g in todos_los_gastos:
+            try:
+                monto = float(g.monto)
+                fecha = datetime.strptime(g.fecha, '%Y-%m-%d')
+                
+                # Definir períodos
+                fecha_str = g.fecha
+                semana = f"{fecha.year}-Sem {fecha.isocalendar()[1]:02d}"
+                mes = f"{fecha.year}-{fecha.month:02d}"
+                trimestre = f"{fecha.year}-T{(fecha.month-1)//3 + 1}"
+                anio = str(fecha.year)
+
+                # Sumar a egresos
+                if fecha.month == mes_actual and fecha.year == anio_actual:
+                    balance_diario[fecha_str]['egresos'] += monto
+                balance_semanal[semana]['egresos'] += monto
+                balance_mensual[mes]['egresos'] += monto
+                balance_trimestral[trimestre]['egresos'] += monto
+                balance_anual[anio]['egresos'] += monto
+            except (ValueError, KeyError):
                 continue
 
-        # Prepara los reportes para el template (ordenados)
+        # --- 4. Calcular Balances y preparar para el template ---
+        
+        def calcular_y_ordenar(balance_dict):
+            lista_final = []
+            for periodo, datos in balance_dict.items():
+                datos['balance'] = datos['ingresos'] - datos['egresos']
+                lista_final.append((periodo, datos))
+            # Ordenar por período (clave, ej: '2025-11') de forma descendente
+            return sorted(lista_final, key=lambda item: item[0], reverse=True)
+
         reportes = {
-            'diario': sorted(ingresos['diarios'].items(), reverse=True),
-            'semanal': sorted(ingresos['semanales'].items(), reverse=True),
-            'mensual': sorted(ingresos['mensuales'].items(), reverse=True),
-            'trimestral': sorted(ingresos['trimestrales'].items(), reverse=True),
-            'semestral': sorted(ingresos['semestrales'].items(), reverse=True),
-            'anual': sorted(ingresos['anuales'].items(), reverse=True)
+            'diario': calcular_y_ordenar(balance_diario),
+            'semanal': calcular_y_ordenar(balance_semanal),
+            'mensual': calcular_y_ordenar(balance_mensual),
+            'trimestral': calcular_y_ordenar(balance_trimestral),
+            'anual': calcular_y_ordenar(balance_anual)
         }
 
         return render_template('informe_financiero_administrador.html', reportes=reportes)
 
     except Exception as e:
-        flash('Error al generar el informe', 'error')
+        flash(f'Error al generar el informe financiero: {e}', 'error')
         return render_template('informe_financiero_administrador.html', reportes={})
 
 @app.route('/panel_reportes')
@@ -761,6 +805,163 @@ def panel_reportes():
     except Exception as e:
         flash(f'Error al generar reportes: {e}', 'error')
         return redirect(url_for('panel_administrador'))
+    
+# --- INICIO: NUEVA RUTA PARA REPORTE DE GASTOS ---
+
+@app.route('/reporte_gastos')
+def reporte_gastos():
+    """
+    RUTA: Muestra un informe financiero y estadístico de los gastos.
+    Protegida por 'verificar_admin()'.
+    """
+    error_redirect = verificar_admin()
+    if error_redirect: return error_redirect
+
+    try:
+        # --- 1. CÁLCULOS FINANCIEROS (Agrupación por tiempo) ---
+        
+        # Consultar todos los gastos para procesarlos en Python
+        # (Para gastos, suele ser más fácil procesar fechas así que con SQL puro)
+        todos_los_gastos = Gasto.query.all()
+        
+        egresos = {
+            'mensuales': defaultdict(float),
+            'trimestrales': defaultdict(float),
+            'anuales': defaultdict(float)
+        }
+
+        for gasto in todos_los_gastos:
+            try:
+                monto = float(gasto.monto)
+                fecha = datetime.strptime(gasto.fecha, '%Y-%m-%d')
+                
+                # Agrupación por mes
+                mes = f"{fecha.year}-{fecha.month:02d}"
+                egresos['mensuales'][mes] += monto
+                
+                # Agrupación por trimestre
+                trimestre = f"{fecha.year}-T{(fecha.month-1)//3 + 1}"
+                egresos['trimestrales'][trimestre] += monto
+                
+                # Agrupación por año
+                egresos['anuales'][str(fecha.year)] += monto
+            except (ValueError, KeyError):
+                continue
+        
+        # Convertir a listas ordenadas para el template
+        reportes_financieros = {
+            'mensual': sorted(egresos['mensuales'].items(), reverse=True),
+            'trimestral': sorted(egresos['trimestrales'].items(), reverse=True),
+            'anual': sorted(egresos['anuales'].items(), reverse=True)
+        }
+
+        # --- 2. CÁLCULOS ESTADÍSTICOS (Rankings) ---
+        
+        # Reporte 1: Total gastado por Categoría
+        gastos_por_categoria = db.session.query(
+            Gasto.categoria, func.sum(Gasto.monto).label('total_gastado')
+        ).group_by(Gasto.categoria).order_by(
+            func.sum(Gasto.monto).desc()
+        ).all()
+
+        # Reporte 2: Top 10 Gastos Individuales más caros
+        top_10_gastos = Gasto.query.order_by(Gasto.monto.desc()).limit(10).all()
+
+        # Reporte 3: Meses con más gastos (basado en lo ya calculado)
+        meses_mas_gastos = sorted(egresos['mensuales'].items(), key=lambda item: item[1], reverse=True)[:5]
+
+
+        return render_template('reporte_gastos.html',
+                               reportes_financieros=reportes_financieros,
+                               gastos_por_categoria=gastos_por_categoria,
+                               top_10_gastos=top_10_gastos,
+                               meses_mas_gastos=meses_mas_gastos,
+                               nombre_usuario=session['nombre_usuario'] # Para el sidebar
+                              )
+
+    except Exception as e:
+        flash(f'Error al generar el reporte de gastos: {e}', 'error')
+        return redirect(url_for('panel_administrador'))
+
+# --- FIN: NUEVA RUTA PARA REPORTE DE GASTOS ---   
+
+# --- INICIO: RUTAS PARA LA GESTIÓN DE GASTOS (ADMIN) ---
+
+@app.route('/gestionar_gastos')
+def gestionar_gastos():
+    """
+    RUTA: Ver lista de gastos (Admin).
+    Protegida por 'verificar_admin()'.
+    Muestra todos los gastos registrados, ordenados por fecha.
+    """
+    error_redirect = verificar_admin()
+    if error_redirect: return error_redirect
+    
+    # Consultar todos los gastos
+    try:
+        # Esta línea ahora funcionará porque 'Gasto' está definido arriba
+        gastos = Gasto.query.order_by(Gasto.fecha.desc()).all()
+    except Exception as e:
+        flash(f'Error al consultar gastos: {e}', 'error')
+        gastos = []
+        
+    now = datetime.now()
+    return render_template('gestionar_gastos.html', gastos=gastos, now=now)
+
+@app.route('/cargar_gasto', methods=['GET', 'POST'])
+def cargar_gasto():
+    """
+    RUTA: Cargar un nuevo gasto (Admin).
+    Protegida por 'verificar_admin()'.
+    GET: Muestra el formulario para cargar el gasto.
+    POST: Procesa el formulario y guarda el nuevo gasto en la DB.
+    """
+    error_redirect = verificar_admin()
+    if error_redirect: return error_redirect
+    
+    if request.method == 'POST':
+        try:
+            fecha = request.form['fecha']
+            monto_str = request.form['monto']
+            categoria = request.form['categoria']
+            concepto = request.form['concepto']
+            descripcion = request.form.get('descripcion', '')
+
+            if not fecha or not monto_str or not categoria or not concepto:
+                flash('Todos los campos obligatorios deben completarse.', 'error')
+                return redirect(url_for('cargar_gasto'))
+            
+            monto = float(monto_str)
+            if monto <= 0:
+                flash('El monto debe ser un número positivo.', 'error')
+                return redirect(url_for('cargar_gasto'))
+
+            nuevo_gasto = Gasto(
+                fecha=fecha,
+                monto=monto,
+                categoria=categoria,
+                concepto=concepto,
+                descripcion=descripcion
+            )
+            
+            db.session.add(nuevo_gasto)
+            db.session.commit()
+            
+            flash('Gasto cargado exitosamente.', 'success')
+            return redirect(url_for('gestionar_gastos'))
+
+        except ValueError:
+            flash('El monto debe ser un número válido.', 'error')
+            return redirect(url_for('cargar_gasto'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al cargar el gasto: {e}', 'error')
+            return redirect(url_for('cargar_gasto'))
+    
+    now = datetime.now()
+    return render_template('cargar_gasto.html', now=now)
+
+# --- FIN: RUTAS PARA LA GESTIÓN DE GASTOS ---
 
 
 # --- Rutas del Panel de Usuario ---

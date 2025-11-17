@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Gastos - Administrador</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#8b5cf6',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f172a, #1e293b); min-height: 100vh; }
+        .admin-card { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .sidebar-link { transition: all 0.3s ease; border-left: 3px solid transparent; }
+        .sidebar-link:hover { background: rgba(59, 130, 246, 0.15); border-left-color: #3b82f6; transform: translateX(5px); }
+        .sidebar-link.active { background: rgba(59, 130, 246, 0.2); border-left-color: #3b82f6; }
+        .user-avatar { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+        .content-section { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glow-text { text-shadow: 0 0 10px rgba(59, 130, 246, 0.7); }
+
+        /* Estilos para las tablas de reporte */
+        .report-section {
+            margin-bottom: 2rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .report-header {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .report-table { width: 100%; border-collapse: collapse; }
+        .report-table th, .report-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+        .report-table th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem; /* text-xs */
+            color: #94a3b8; /* text-gray-400 */
+        }
+        .report-table td.monto {
+            text-align: right;
+            font-weight: 700;
+            font-family: monospace;
+            color: #f87171; /* text-red-400 */
+        }
+        .report-table td.categoria {
+            font-weight: 600;
+            color: #a5b4fc; /* indigo-300 */
+        }
+        .report-table tr:last-child td { border-bottom: none; }
+        .no-data { padding: 2rem; text-align: center; color: #94a3b8; }
+    </style>
+</head>
+<body class="flex min-h-screen p-4 sm:p-8">
+    <div class="admin-card w-full max-w-6xl mx-auto rounded-2xl overflow-hidden flex flex-col md:flex-row">
+        
+        <div class="w-full md:w-64 bg-gray-900 p-6 flex flex-col">
+            <div class="flex flex-col items-center mb-8">
+                <div class="user-avatar w-20 h-20 rounded-full flex items-center justify-center text-white text-4xl font-bold mb-3">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Panel de Admin</h2>
+                <p class="text-blue-300 text-sm mt-1">Bienvenido, {{ nombre_usuario }}</p>
+            </div>
+            
+            <nav class="flex-1">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="{{ url_for('panel_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-tachometer-alt mr-3 text-blue-400"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('gestionar_canchas') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-futbol mr-3 text-green-400"></i>
+                            <span>Gestión de Canchas</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('ver_turnos_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-calendar-check mr-3 text-yellow-400"></i>
+                            <span>Turnos Reservados</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('ver_turnos_cancelados_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-calendar-times mr-3 text-red-400"></i>
+                            <span>Turnos Cancelados</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('gestionar_usuarios') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-users mr-3 text-purple-400"></i>
+                            <span>Gestión de Usuarios</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('informe_financiero_administrador') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-chart-line mr-3 text-teal-400"></i>
+                            <span>Informe Financiero</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('panel_reportes') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-chart-pie mr-3 text-orange-400"></i>
+                            <span>Estadísticas</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('gestionar_gastos') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-file-invoice-dollar mr-3 text-red-400"></i>
+                            <span>Gestión de Gastos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('reporte_gastos') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-chart-bar mr-3 text-red-400"></i>
+                            <span>Reporte de Gastos</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="mt-auto pt-4 border-t border-gray-700">
+                <a href="{{ url_for('cerrar_sesion') }}" class="flex items-center p-3 text-gray-300 rounded-lg hover:bg-red-900/30 hover:text-red-100">
+                    <i class="fas fa-sign-out-alt mr-3 text-red-400"></i>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
+        </div>
+        
+        <div class="flex-1 p-6 content-section overflow-y-auto">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-white glow-text">Reportes de Gastos</h1>
+                <p class="text-blue-200">Análisis financiero y estadístico de todos los egresos.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        {% if category == 'error' %}
+                        <div class="bg-red-900/50 border border-red-700/30 text-red-300 p-4 rounded-lg mb-6 flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-3 text-red-400"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <div class="lg:col-span-1 space-y-6">
+                    
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h2 class="text-xl font-semibold text-white">
+                                <i class="fas fa-chart-pie mr-2 text-purple-400"></i>
+                                Gastos por Categoría
+                            </h2>
+                        </div>
+                        {% if gastos_por_categoria %}
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Categoría</th>
+                                        <th class="text-right">Total Gastado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for categoria, total in gastos_por_categoria %}
+                                    <tr>
+                                        <td class="categoria">{{ categoria }}</td>
+                                        <td class="monto">${{ "%.2f"|format(total) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="no-data"><p>No hay datos</p></div>
+                        {% endif %}
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h2 class="text-xl font-semibold text-white">
+                                <i class="fas fa-arrow-trend-up mr-2 text-red-400"></i>
+                                Meses con Más Gastos
+                            </h2>
+                        </div>
+                        {% if meses_mas_gastos %}
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mes</th>
+                                        <th class="text-right">Total Gastado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mes, total in meses_mas_gastos %}
+                                    <tr>
+                                        <td>{{ mes }}</td>
+                                        <td class="monto">${{ "%.2f"|format(total) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="no-data"><p>No hay datos</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h2 class="text-xl font-semibold text-white">
+                                <i class="fas fa-sort-amount-down mr-2 text-yellow-400"></i>
+                                Top 10 Gastos Individuales
+                            </h2>
+                        </div>
+                        {% if top_10_gastos %}
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Concepto</th>
+                                        <th class="text-right">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for gasto in top_10_gastos %}
+                                    <tr>
+                                        <td>
+                                            <span class="font-semibold text-white">{{ gasto.concepto }}</span>
+                                            <span class="block text-xs text-gray-400">{{ gasto.fecha }} | {{ gasto.categoria }}</span>
+                                        </td>
+                                        <td class="monto">${{ "%.2f"|format(gasto.monto) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="no-data"><p>No hay datos</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1 space-y-6">
+
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h2 class="text-xl font-semibold text-white">Egresos Mensuales</h2>
+                        </div>
+                        {% if reportes_financieros.mensual %}
+                            <table class="report-table">
+                                <thead> <tr><th>Mes</th><th class="text-right">Total</th></tr> </thead>
+                                <tbody>
+                                    {% for mes, total in reportes_financieros.mensual %}
+                                    <tr> <td>{{ mes }}</td> <td class="monto">${{ "%.2f"|format(total) }}</td> </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="no-data"><p>No hay datos</p></div>
+                        {% endif %}
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h2 class="text-xl font-semibold text-white">Egresos Trimestrales</h2>
+                        </div>
+                        {% if reportes_financieros.trimestral %}
+                            <table class="report-table">
+                                <thead> <tr><th>Trimestre</th><th class="text-right">Total</th></tr> </thead>
+                                <tbody>
+                                    {% for trimestre, total in reportes_financieros.trimestral %}
+                                    <tr> <td>{{ trimestre }}</td> <td class="monto">${{ "%.2f"|format(total) }}</td> </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="no-data"><p>No hay datos</p></div>
+                        {% endif %}
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h2 class="text-xl font-semibold text-white">Egresos Anuales</h2>
+                        </div>
+                        {% if reportes_financieros.anual %}
+                            <table class="report-table">
+                                <thead> <tr><th>Año</th><th class="text-right">Total</th></tr> </thead>
+                                <tbody>
+                                    {% for año, total in reportes_financieros.anual %}
+                                    <tr> <td>{{ año }}</td> <td class="monto">${{ "%.2f"|format(total) }}</td> </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="no-data"><p>No hay datos</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+            </div> <div class="mt-8 text-center">
+                <a href="{{ url_for('panel_administrador') }}" class="text-blue-400 hover:text-blue-300 transition-colors">
+                    <i class="fas fa-arrow-left mr-1"></i> Volver al Panel Principal
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const menuLinks = document.querySelectorAll('.sidebar-link');
+            
+            menuLinks.forEach(link => {
+                link.classList.remove('active', 'text-blue-100');
+                link.classList.add('text-gray-300');
+                
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active', 'text-blue-100');
+                    link.classList.remove('text-gray-300');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

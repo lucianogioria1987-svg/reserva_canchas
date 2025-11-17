@@ -142,6 +142,20 @@
                             <span>Estadísticas</span>
                         </a>
                     </li>
+                    
+                    <li>
+                        <a href="{{ url_for('gestionar_gastos') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-file-invoice-dollar mr-3 text-red-400"></i>
+                            <span>Gestión de Gastos</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('reporte_gastos') }}" class="sidebar-link flex items-center p-3 text-gray-300 rounded-lg">
+                            <i class="fas fa-chart-bar mr-3 text-red-400"></i>
+                            <span>Reporte de Gastos</span>
+                        </a>
+                    </li>
                     </ul>
             </nav>
             
@@ -220,7 +234,7 @@
                     <div class="text-amber-300 mb-2">
                         <i class="fas fa-dollar-sign"></i> Ingresos
                     </div>
-                    <div class="text-3xl font-bold text-white">${{ ingresos_mensuales }}</div>
+                    <div class="text-3xl font-bold text-white">${{ "%.2f"|format(ingresos_mensuales) }}</div>
                     <div class="text-amber-300 text-sm mt-1">
                         Mes actual hasta hoy
                     </div>
@@ -292,7 +306,7 @@
                             <i class="fas fa-chart-line mr-2"></i>Estadística
                         </h3>
                         <p class="text-gray-300 text-sm">
-                            Este mes has generado ${{ ingresos_mensuales }} en ingresos.
+                            Este mes has generado ${{ "%.2f"|format(ingresos_mensuales) }} en ingresos.
                         </p>
                     </div>
                 </div>
@@ -305,7 +319,20 @@
         const ahora = new Date();
         const hora = ahora.getHours().toString().padStart(2, '0');
         const minutos = ahora.getMinutes().toString().padStart(2, '0');
-        document.querySelector('.text-blue-300.text-sm').textContent = `Hoy, ${hora}:${minutos}`;
+        
+        // CORRECCIÓN: Busca el elemento correcto para la hora
+        const horaElement = document.querySelector('.text-blue-300.text-sm.mt-1');
+        if (horaElement && horaElement.textContent.includes('Bienvenido')) {
+             // Este es el 'Bienvenido' de arriba, buscar el otro
+             document.querySelectorAll('.text-blue-300.text-sm').forEach(el => {
+                if (el.textContent.includes('Hoy,')) {
+                    el.textContent = `Hoy, ${hora}:${minutos}`;
+                }
+             });
+        } else if (horaElement) {
+            // Si el primero que encontró es el correcto
+            horaElement.textContent = `Hoy, ${hora}:${minutos}`;
+        }
 
         // Efecto de hover en los enlaces
         document.querySelectorAll('.sidebar-link').forEach(link => {
@@ -327,15 +354,21 @@
             const menuLinks = document.querySelectorAll('.sidebar-link');
             
             menuLinks.forEach(link => {
+                // Quitar 'active' de todos primero (incluso del de Dashboard)
+                link.classList.remove('active');
+                link.classList.add('text-gray-300');
+                link.classList.remove('text-blue-100');
+                
+                // Añadir 'active' solo al que coincide
                 if (link.getAttribute('href') === currentPath) {
                     link.classList.add('active');
-                } else {
-                    link.classList.remove('active');
+                    link.classList.remove('text-gray-300');
+                    link.classList.add('text-blue-100');
                 }
             });
         });
         
-        // Simular mensaje flash
+        // Simular mensaje flash de bienvenida
         setTimeout(() => {
             const flash = document.createElement('div');
             flash.className = 'bg-green-900/50 border border-green-700/30 text-green-300 p-4 rounded-lg mb-6';
@@ -345,7 +378,11 @@
                     <span>¡Bienvenido al panel de administración! El sistema está funcionando correctamente.</span>
                 </div>
             `;
-            document.querySelector('.content-section').insertBefore(flash, document.querySelector('.content-section').firstChild);
+            // Insertar después del H1 y P
+            const titleElement = document.querySelector('.content-section .mb-8');
+            if(titleElement) {
+                titleElement.insertAdjacentElement('afterend', flash);
+            }
             
             // Eliminar después de 5 segundos
             setTimeout(() => {
